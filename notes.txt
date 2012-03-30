@@ -80,7 +80,7 @@ Benchmarks
 2011-01-14
 ----------
 
-Only files, up-to-date database::
+Only files, up-to-date database, all files on NFS filesystem::
 
     $ time ./run.sh /srv/
 
@@ -98,3 +98,4 @@ Only files, up-to-date database::
     real    1m5.263s
     user    0m16.697s
     sys 0m9.005s
+    
