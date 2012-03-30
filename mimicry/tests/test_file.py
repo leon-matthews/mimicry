@@ -1,6 +1,8 @@
 
 from unittest import TestCase
 
+from ..file import File
+
 
 class TestFile(TestCase):
     def test_me(self):
