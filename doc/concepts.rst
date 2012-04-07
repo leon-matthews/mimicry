@@ -1,7 +1,7 @@
 
-============================
-Notes on Duplicate Detection
-============================
+========
+Concepts
+========
 
 
 Different kinds of duplicates
@@ -38,8 +38,8 @@ calculate the hash for every file of interest.
 
 Use a two pass method:
 
-* First read metadata from every file, including their sizes.
-* Then calculate the hash just those files whose size's are exactly the same.
+1. First read metadata from every file, including their sizes.
+2. Then calculate the hash just those files whose size's are exactly the same.
 
 Cache
 -----
@@ -70,32 +70,5 @@ Find duplicates via SQL query
 We can find duplicates via SHA1 collisions using SQL from the
 command-line as follows::
 
-echo "SELECT * from files where sha1 in (SELECT sha1 FROM files GROUP BY sha1 HAVING count(*) > 1);" | sqlite3 files.db
-
-
-
-Benchmarks
-==========
-
-2011-01-14
-----------
-
-Only files, up-to-date database, all files on NFS filesystem::
-
-    $ time ./run.sh /srv/
-
-    Deleting obsolete records...
-    0 records deleted
-
-    Updating cache from file system...
-    0 folder records added
-    0 file records added
-
-    7,527 total folder records
-    100,981 total file records
-    7,017,312,723,563 total bytes
-
-    real    1m5.263s
-    user    0m16.697s
-    sys 0m9.005s
-    
+    echo "SELECT * from files where sha1 in (SELECT sha1 FROM files "
+        "GROUP BY sha1 HAVING count(*) > 1);" | sqlite3 files.db
