@@ -18,7 +18,7 @@ class File:
     fields
         Optional.  If given, object will initialise itself dictionary.
     """
-    def __init__(self, path=None, fields=None):
+    def __init__(self, path=None, fields=None, read_sha1=True):
         """
         Populates and stores its own metadata from given path.
         """
@@ -29,7 +29,10 @@ class File:
             self.sha1 = fields['sha1']
             self.updated = fields['updated']
         elif path:
-            self.update(path)
+            path = os.path.abspath(path)
+            assert os.path.isfile(path), "File expected: '{}'".format(path)
+            self.path = path
+            self.update(read_sha1)
         else:
             self.path = None
             self.size = None
@@ -37,35 +40,32 @@ class File:
             self.sha1 = None
             self.updated = None
 
-    def get_sha1(self):
+    def format_sha1(self):
         """
         Return the  binary sha1 hash as hexadecimal string.
         """
         if self.sha1:
             return binascii.hexlify(self.sha1).decode('ascii')
         else:
-            return ''
+            return None
 
-    def update(self, path, calculate_sha1=False):
+    def update(self, read_sha1=True):
         """
-        Initialise data from file.
+        Update metadata from source file.
 
-        calculate_hash
-            If True also reads file and calculates SHA1 hash.
+        read_sha1
+            If True also reads file, calculating SHA1 hash.
         """
-        path = os.path.abspath(path)
-        assert os.path.isfile(path), "File expected: '{}'".format(path)
-        self.path = path
         stat = os.stat(self.path)
         self.mtime = int(stat.st_mtime)
         self.size = int(stat.st_size)
         self.sha1 = None
         self.updated = int(time.time())
 
-        if calculate_sha1:
-            self.calculate_sha1()
+        if read_sha1:
+            self._calculate_sha1()
 
-    def calculate_sha1(self):
+    def _calculate_sha1(self):
         """Calculate sha1 of file"""
         with open(self.path, 'rb') as f:
             sha1 = hashlib.sha1()
@@ -85,6 +85,9 @@ class File:
         return time.strftime(format_string, time.gmtime(epoch))
 
     def __str__(self):
+        """
+        Multi-line string representation for debugging
+        """
         # Make copy to avoid aliasing errors
         fields = dict(vars(self))
         fields['sha1'] = self.get_sha1()
