@@ -1,5 +1,5 @@
 """
-Abstract a single file's metadata
+Abstract file metadata.
 """
 
 import binascii
@@ -84,13 +84,21 @@ class File:
         format_string = "%a, %d %b %Y %H:%M:%S +0000"
         return time.strftime(format_string, time.gmtime(epoch))
 
+    def __eq__(self, other):
+        return (isinstance(other, self.__class__) and
+            self.__dict__ == other.__dict__)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __str__(self):
         """
         Multi-line string representation for debugging
         """
         # Make copy to avoid aliasing errors
         fields = dict(vars(self))
-        fields['sha1'] = self.get_sha1()
+        fields['sha1'] = self.format_sha1()
+        fields['size'] = 0 if self.size is None else self.size
         fields['mtime'] = self._format_epoch(self.mtime)
         fields['updated'] = self._format_epoch(self.updated)
         s = textwrap.dedent("""
