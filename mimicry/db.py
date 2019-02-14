@@ -107,11 +107,11 @@ class DB:
         schema = textwrap.dedent("""
 
         CREATE TABLE files (
-            path    TEXT UNIQUE NOT NULL,   -- Absolute path
+            path    TEXT UNIQUE NOT NULL,   -- Path relative to database root
             size    INTEGER NOT NULL,       -- Size in bytes
-            mtime   INTEGER NOT NULL,       -- Unix epoch
+            mtime   INTEGER NOT NULL,       -- File mtime, unix epoch
             sha1    BLOB,                   -- Binary SHA1 hash
-            updated INTEGER NOT NULL        -- Unix epoch when record updated
+            updated INTEGER NOT NULL        -- Record last updated, unix epoch
         );
 
         CREATE INDEX files_sha1_index on files(sha1);
