@@ -5,20 +5,19 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 
 
-from ..database import DB, File
+from mimicry.database import DB, File, NotUnderRoot
 
 
 class TestDatabase(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.folder = TemporaryDirectory(prefix='mimicry-')
-        cls.db_path = os.path.join(cls.folder.name, 'db.sqlite3')
-        cls.db = DB(cls.db_path)
+        cls.db = DB(cls.folder.name)
 
     @classmethod
     def tearDownClass(cls):
-        import subprocess
-        subprocess.run(['sqlite3', cls.db.path, '.dump'])
+        # ~ import subprocess
+        # ~ subprocess.run(['sqlite3', cls.db.path, '.dump'])
         cls.folder.cleanup()
 
     def test_add(self):
@@ -26,7 +25,16 @@ class TestDatabase(TestCase):
         Add file successfully.
         """
         path = self._make_file('something/else/was/here.png', 1069)
-        f = self.db.add(path)
+
+        # Before
+        f = self.db.get(path)
+        self.assertTrue(f is None)
+
+        # Add
+        self.db.add(path)
+
+        # After
+        f =  self.db.get(path)
         self.assertIsInstance(f, File)
         self.assertEqual(f.name, 'here.png')
         self.assertEqual(f.relpath, 'something/else/was/here.png')
@@ -84,13 +92,14 @@ class TestDatabase(TestCase):
             self.assertEqual(len(f.sha256), 64)
         self.assertGreater(count, 0)
 
-    def test_get_not_found(self):
-        f = self.db.get('not/found/here')
-        self.assertTrue(f is None)
+    def test_get_not_under_root(self):
+        path = '/not/found/here'
+        with self.assertRaises(NotUnderRoot):
+            self.db.get(path)
 
     def _make_file(self, relpath, size):
         """
-        Make a single file under our temporary file.
+        Make a single file under our temporary folder.
 
         Returns full path to file.
         """

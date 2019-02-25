@@ -15,28 +15,41 @@ logger = logging.getLogger(__name__)
 File = namedtuple('File', 'name path relpath bytes mtime updated sha256 hashed')
 
 
+class NotUnderRoot(RuntimeError):
+    """
+    The metadata database (say *that* quickly 17 times) should only operate
+    on paths under its root folder.
+    """
+    pass
+
+
 class DB:
     """
-    Database to store file metadata.
+    Store metadata for a file tree.
+
+    An SQLite database file (`mimicry.db`) is created in the root of the
+    given file tree will maintain metadata about that tree, including a hash
+    of file contents, about every folder and file found.
+
+    It is an error to try and perform operations outside the file tree's
+    root. A `NotUnderRoot` exception will be raised if attempted.
     """
-    def __init__(self, path):
+    def __init__(self, root):
         """
         Create or open database file with given path.
+
+        The database file will be created
         """
-        self.path = os.path.abspath(path)
-        self.folder = os.path.dirname(path)
-        self.connection = sqlite3.connect(path, isolation_level=None)
-        self.connection.row_factory = sqlite3.Row
-        # ~ self.connection.set_trace_callback(print)
-        self._create_schema()
-        self._run_pragmas()
+        self.root = os.path.abspath(root)
+        path = os.path.join(self.root, 'mimicry.db')
+        self.connect(path)
 
     def add(self, path):
         """
         Read single file with given path to the database.
         """
         def do_add(path, cursor):
-            relpath = os.path.relpath(path, self.folder)
+            relpath = os.path.relpath(path, self.root)
             folder, filename = os.path.split(relpath)
 
             cursor.execute("INSERT OR IGNORE INTO folders(relpath) VALUES (?)", (folder,))
@@ -72,20 +85,25 @@ class DB:
         cursor.execute('SAVEPOINT add_file;')
         try:
             do_add(path, cursor)
-            added = self.get(path)
             cursor.execute("RELEASE add_file;")
         except sqlite3.Error:
             cursor.execute("ROLLBACK TO add_file;")
             raise
 
-        return added
+    def connect(self, path):
+        self.connection = sqlite3.connect(path, isolation_level=None)
+        self.connection.row_factory = sqlite3.Row
+        # ~ self.connection.set_trace_callback(print)
+        self._check_schema()
+        self._run_pragmas()
 
     def get(self, path):
         """
         Return a single file record.
         """
         path = os.path.abspath(path)
-        relpath = os.path.relpath(path, self.folder)
+        self._check_path_under_root(path)
+        relpath = os.path.relpath(path, self.root)
         folder, filename = os.path.split(relpath)
         query = textwrap.dedent("""
             SELECT name, bytes, mtime, updated, sha256, hashed
@@ -148,7 +166,7 @@ class DB:
         for row in self.connection.execute(query):
             data = dict(row)
             data['relpath'] = os.path.join(data['relpath'], data['name'])
-            data['path'] = os.path.join(self.folder, data['relpath'])
+            data['path'] = os.path.join(self.root, data['relpath'])
             data['sha256'] = data['sha256'].hex()
             yield File(**data)
 
@@ -160,9 +178,19 @@ class DB:
                 sha256.update(chunk)
         return sha256.digest()
 
-    def _create_schema(self):
+    def _check_path_under_root(self, path):
         """
-        Create database structure.
+        Raise `NotUnderRoot` if given path is not... under... root...
+        """
+        # Check that path is under our root
+        commonpath = os.path.commonpath([path, self.root])
+        if not commonpath.startswith(self.root):
+            message = f"Given path not under database's root folder: {path}"
+            raise NotUnderRoot(message)
+
+    def _check_schema(self):
+        """
+        Create database structure, if required.
 
         All times are Unix epoch's.
 
@@ -171,32 +199,35 @@ class DB:
         schema = textwrap.dedent("""
 
         CREATE TABLE IF NOT EXISTS files (
-            -- List of all files under database file.
-            id      INTEGER PRIMARY KEY,
-            name    TEXT NOT NULL,          -- File's name
-            bytes   INTEGER,                -- File's size
-            mtime   INTEGER,                -- File's mtime
-            updated INTEGER,                -- Time metadata last updated
-            sha256  BLOB,                   -- Binary sha256 hash
-            hashed  INTEGER,                -- Time hash was last calculated
-            folder  INTEGER NOT NULL,       -- Link to parent folder
+            -- Metadata every file found under database root
+            id              INTEGER PRIMARY KEY,
+            name            TEXT NOT NULL,          -- File's name
+            bytes           INTEGER,                -- File's size
+            mtime           INTEGER,                -- File's mtime
+            updated         INTEGER,                -- Time metadata last updated
+            sha256          BLOB,                   -- Binary sha256 hash
+            hashed          INTEGER,                -- Time hash was last calculated
+            folder          INTEGER NOT NULL,       -- Link to parent folder
             FOREIGN KEY(folder) REFERENCES folders(id),
             UNIQUE  (name, folder)
         );
 
         CREATE TABLE IF NOT EXISTS folders (
-            -- List of all folders found under database file
-            id      INTEGER PRIMARY KEY,
-            relpath TEXT UNIQUE NOT NULL    -- Path relative to database
+            -- Every folder found under database root
+            id              INTEGER PRIMARY KEY,
+            relpath         TEXT UNIQUE NOT NULL    -- Path relative to database
         );
 
         CREATE TABLE IF NOT EXISTS metadata (
             -- Single entry table containing DB metadata
-            id      INTEGER PRIMARY KEY,
-            label   TEXT NOT NULL,          -- Device label
-            created INTEGER NOT NULL,       -- Database creation time
-            updated INTEGER NOT NULL,       -- Time of completed update
-            CHECK (rowid=1)                 -- Only one row allowed
+            id              INTEGER PRIMARY KEY,
+            label           TEXT NOT NULL,          -- User label
+            root            TEXT NOT NULL,          -- Full path to last mount point
+            device_model    TEXT,                   -- Storage device model
+            device_serial   TEXT,                   -- Storage device serial number
+            created         INTEGER NOT NULL,       -- Database creation time
+            updated         INTEGER NOT NULL,       -- Time of completed update
+            CHECK (rowid=1)                         -- Only one row allowed
         );
 
         """)
@@ -208,5 +239,8 @@ class DB:
         Configure database connection.
         """
         cursor = self.connection.cursor()
+        self.connection.execute('PRAGMA cache_size = -16384;')    # 16MiB
         cursor.execute("PRAGMA foreign_keys = ON;")
+        cursor.execute('PRAGMA journal_mode = WAL;')
         cursor.execute("PRAGMA synchronous = OFF;")
+        cursor.execute('PRAGMA temp_store = MEMORY;')
