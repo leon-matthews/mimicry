@@ -1,12 +1,10 @@
 
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 import hashlib
 import logging
 import os.path
 import sqlite3
 import textwrap
-
-from .models import File
 
 
 logger = logging.getLogger(__name__)
@@ -48,43 +46,11 @@ class DB:
         """
         Read single file with given path to the database.
         """
-        def do_add(path, cursor):
-            relpath = os.path.relpath(path, self.root)
-            folder, filename = os.path.split(relpath)
-
-            cursor.execute("INSERT OR IGNORE INTO folders(relpath) VALUES (?)", (folder,))
-            cursor.execute("SELECT id FROM folders WHERE relpath=?;", (folder,))
-            folder_id = cursor.fetchone()['id']
-
-            # Build parameters
-            parameters = {
-                'name': filename,
-                'bytes': os.path.getsize(path),
-                'mtime': int(os.path.getmtime(path)),
-                'folder': folder_id,
-                'sha256': self._calculate_hash(path),
-            }
-
-            # Create bare file
-            query = "INSERT OR IGNORE INTO files (name, folder) VALUES (:name, :folder);"
-            cursor.execute(query, parameters)
-
-            # Update file
-            # We do this in two steps to preserve the file's rowid. Running a single
-            #'INSERT OR REPLACE' query would increment that.
-            query = textwrap.dedent("""
-                UPDATE files SET
-                    bytes=:bytes, mtime=:mtime, sha256=:sha256,
-                    hashed=strftime('%s'), updated=strftime('%s')
-                    WHERE name=:name AND folder=:folder;
-            """).strip()
-            cursor.execute(query, parameters)
-
-        # Wrap
+        path = self._clean_path(path)
         cursor = self.connection.cursor()
         cursor.execute('SAVEPOINT add_file;')
         try:
-            do_add(path, cursor)
+            self._do_add(path, cursor)
             cursor.execute("RELEASE add_file;")
         except sqlite3.Error:
             cursor.execute("ROLLBACK TO add_file;")
@@ -97,50 +63,11 @@ class DB:
         self._check_schema()
         self._run_pragmas()
 
-    def get(self, path):
-        """
-        Return a single file record.
-        """
-        path = os.path.abspath(path)
-        self._check_path_under_root(path)
-        relpath = os.path.relpath(path, self.root)
-        folder, filename = os.path.split(relpath)
-        query = textwrap.dedent("""
-            SELECT name, bytes, mtime, updated, sha256, hashed
-                FROM files INNER JOIN folders ON files.folder = folders.id
-                WHERE name=:filename AND
-                      folder=(SELECT id FROM folders WHERE relpath=:folder);
-        """).strip()
-        cursor = self.connection.cursor()
-        cursor.execute(query, {'folder':  folder, 'filename': filename})
-        row = cursor.fetchone()
-        if row is None:
-            return None
-        data = dict(row)
-        data['path'] = path
-        data['relpath'] = relpath
-        data['sha256'] = data['sha256'].hex()
-        return File(**data)
-
-    def bytes(self):
-        """
-        Return sum of the bytes accross of all file records.
-        """
-        cursor = self.connection.execute("SELECT sum(bytes) FROM files;")
-        return cursor.fetchone()[0]
-
-    def count(self):
-        """
-        Return the total number of file records.
-        """
-        cursor = self.connection.execute("SELECT count(*) FROM files;")
-        return cursor.fetchone()[0]
-
     def delete(self, path):
         """
         Delete the file record with the given path.
         """
-        path = os.path.abspath(path)
+        path = self._clean_path(path)
         self.connection.execute('DELETE FROM files WHERE path=?;', (path,))
         self.connection.commit()
 
@@ -148,9 +75,10 @@ class DB:
         """
         Iterate over duplicate files.
         """
-        duplicates = collections.defaultdict(list)
-        for row in self.connection.execute("SELECT * FROM files WHERE sha256 IN "
-            "(SELECT sha256 FROM files GROUP BY sha256 HAVING count(*) > 1);"):
+        duplicates = defaultdict(list)
+        query = ("SELECT * FROM files WHERE sha256 IN "
+                 "(SELECT sha256 FROM files GROUP BY sha256 HAVING count(*) > 1);")
+        for row in self.connection.execute(query):
             f = File(fields=row)
             duplicates[f.sha256].append(f)
         return duplicates
@@ -170,6 +98,44 @@ class DB:
             data['sha256'] = data['sha256'].hex()
             yield File(**data)
 
+    def files_count(self):
+        """
+        Return the total number of file records.
+        """
+        cursor = self.connection.execute("SELECT count(*) FROM files;")
+        return cursor.fetchone()[0]
+
+    def files_size(self):
+        """
+        Return sum of the bytes accross of all file records.
+        """
+        cursor = self.connection.execute("SELECT sum(bytes) FROM files;")
+        return cursor.fetchone()[0]
+
+    def get(self, path):
+        """
+        Return a single file record.
+        """
+        path = self._clean_path(path)
+        relpath = os.path.relpath(path, self.root)
+        folder, filename = os.path.split(relpath)
+        query = textwrap.dedent("""
+            SELECT name, bytes, mtime, updated, sha256, hashed
+                FROM files INNER JOIN folders ON files.folder = folders.id
+                WHERE name=:filename AND
+                      folder=(SELECT id FROM folders WHERE relpath=:folder);
+        """).strip()
+        cursor = self.connection.cursor()
+        cursor.execute(query, {'folder':  folder, 'filename': filename})
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        data = dict(row)
+        data['path'] = path
+        data['relpath'] = relpath
+        data['sha256'] = data['sha256'].hex()
+        return File(**data)
+
     def _calculate_hash(self, path):
         BUFFSIZE = 4096 * 1000
         sha256 = hashlib.sha256()
@@ -177,16 +143,6 @@ class DB:
             for chunk in iter(lambda: f.read(BUFFSIZE), b''):
                 sha256.update(chunk)
         return sha256.digest()
-
-    def _check_path_under_root(self, path):
-        """
-        Raise `NotUnderRoot` if given path is not... under... root...
-        """
-        # Check that path is under our root
-        commonpath = os.path.commonpath([path, self.root])
-        if not commonpath.startswith(self.root):
-            message = f"Given path not under database's root folder: {path}"
-            raise NotUnderRoot(message)
 
     def _check_schema(self):
         """
@@ -233,6 +189,52 @@ class DB:
         """)
         self.connection.executescript(schema)
         self.connection.commit()
+
+    def _clean_path(self, path):
+        """
+        Clean path, and check for validity.
+
+        Raises `NotUnderRoot` if given path is not... under... root...
+        """
+        # Check that path is under our root
+        path = os.path.abspath(path)
+        commonpath = os.path.commonpath([path, self.root])
+        if not commonpath.startswith(self.root):
+            message = f"Given path not under database's root folder: {path}"
+            raise NotUnderRoot(message)
+        return path
+
+    def _do_add(self, path, cursor):
+        relpath = os.path.relpath(path, self.root)
+        folder, filename = os.path.split(relpath)
+
+        cursor.execute("INSERT OR IGNORE INTO folders(relpath) VALUES (?)", (folder,))
+        cursor.execute("SELECT id FROM folders WHERE relpath=?;", (folder,))
+        folder_id = cursor.fetchone()['id']
+
+        # Build parameters
+        parameters = {
+            'name': filename,
+            'bytes': os.path.getsize(path),
+            'mtime': int(os.path.getmtime(path)),
+            'folder': folder_id,
+            'sha256': self._calculate_hash(path),
+        }
+
+        # Create bare file
+        query = "INSERT OR IGNORE INTO files (name, folder) VALUES (:name, :folder);"
+        cursor.execute(query, parameters)
+
+        # Update file
+        # We do this in two steps to preserve the file's rowid. Running a single
+        # 'INSERT OR REPLACE' increments that.
+        query = textwrap.dedent("""
+            UPDATE files SET
+                bytes=:bytes, mtime=:mtime, sha256=:sha256,
+                hashed=strftime('%s'), updated=strftime('%s')
+                WHERE name=:name AND folder=:folder;
+        """).strip()
+        cursor.execute(query, parameters)
 
     def _run_pragmas(self):
         """

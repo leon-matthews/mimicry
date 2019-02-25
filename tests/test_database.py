@@ -1,5 +1,4 @@
 
-import binascii
 import os.path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
@@ -34,7 +33,7 @@ class TestDatabase(TestCase):
         self.db.add(path)
 
         # After
-        f =  self.db.get(path)
+        f = self.db.get(path)
         self.assertIsInstance(f, File)
         self.assertEqual(f.name, 'here.png')
         self.assertEqual(f.relpath, 'something/else/was/here.png')
@@ -53,21 +52,21 @@ class TestDatabase(TestCase):
         # Add one
         path = self._make_file('some/path/here/and/there.txt', 47)
         self.db.add(path)
-        count = self.db.count()
+        count = self.db.files_count()
 
         # Add same file again
         self.db.add(path)
         self.db.add(path)
         self.db.add(path)
-        count_after = self.db.count()
+        count_after = self.db.files_count()
         self.assertEqual(count, count_after)
 
-    def test_bytes(self):
-        bytes_at_start = self.db.bytes()
+    def test_files_size(self):
+        bytes_at_start = self.db.files_size()
         self.assertIsInstance(bytes_at_start, int)
         path = self._make_file('whatever/happens/next.opus', 123)
         self.db.add(path)
-        increased_by = self.db.bytes() - bytes_at_start
+        increased_by = self.db.files_size() - bytes_at_start
         self.assertEqual(increased_by, 123)
 
     def test_calculate_hash(self):
@@ -91,6 +90,7 @@ class TestDatabase(TestCase):
             self.assertIsInstance(f, File)
             self.assertEqual(len(f.sha256), 64)
         self.assertGreater(count, 0)
+        self.assertEqual(count, self.db.files_count())
 
     def test_get_not_under_root(self):
         path = '/not/found/here'
