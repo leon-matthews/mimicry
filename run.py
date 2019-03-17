@@ -2,24 +2,30 @@
 Walk the file system, reading file metadata along the way.
 """
 
+import logging
 import os
 import sys
 import textwrap
 
-from .db import DB
-from .cache import Cache
+from mimicry.database import DB
+from mimicry.cache import Cache
+
+
+def setup_logging():
+    logging.basicConfig(level=logging.DEBUG)
 
 
 if __name__ == '__main__':
+    setup_logging()
+
     if len(sys.argv) != 2:
         program_name = os.path.basename(os.path.dirname(sys.argv[0]))
         print("usage: {} path".format(program_name))
         sys.exit(1)
 
     root = sys.argv[1]
-    db_path = './files.db'
 
-    c = Cache(db_path)
+    c = Cache(root)
 
     print()
     print("Deleting obsolete records...")

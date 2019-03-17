@@ -2,10 +2,13 @@
 Database of files' metadata and sha256 content hash.
 """
 
+import logging
 import os
 
-from .db import DB
-from .models import File
+from .database import DB
+
+
+logger = logging.getLogger(__name__)
 
 
 class Cache:
@@ -69,7 +72,8 @@ class Cache:
 
             for name in files:
                 path = os.path.join(root, name)
-                was_updated = self._update_file(path)
+                logger.debug("Add %r", path)
+                was_updated = self.db.add(path)
                 if was_updated:
                     files_updated += 1
 
