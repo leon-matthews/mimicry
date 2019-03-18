@@ -6,19 +6,13 @@ import os.path
 import sqlite3
 import textwrap
 
+from .exceptions import NotUnderRoot
+
 
 logger = logging.getLogger(__name__)
 
 
 File = namedtuple('File', 'name path relpath bytes mtime updated sha256 hashed')
-
-
-class NotUnderRoot(RuntimeError):
-    """
-    The metadata database (say *that* quickly 17 times) should only operate
-    on paths under its root folder.
-    """
-    pass
 
 
 class DB:

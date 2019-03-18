@@ -6,9 +6,36 @@ import logging
 import os
 
 from .database import DB
+from .exceptions import NotAFolder
 
 
 logger = logging.getLogger(__name__)
+
+
+class Tree:
+    def __init__(self, root):
+        root = os.path.expanduser(root)
+        root = os.path.abspath(root)
+        if not os.path.isdir(root):
+            raise NotAFolder(f'Given root not a folder: {root!r}')
+        self.root = root
+
+    def read(self):
+        num_bytes = num_files = 0
+        for root, dirs, files, rootfd in os.fwalk(self.root):
+            num_files += len(files)
+            for name in files:
+                try:
+                    s = os.stat(name, dir_fd=rootfd)
+                except FileNotFoundError:
+                    path = os.path.join(root, name)
+                    if os.path.islink(path):
+                        pass
+                        #logger.warning(f"Broken symlink ignored: '{path}'")
+                    else:
+                        raise
+                num_bytes += s.st_size
+        print(f"{num_files:,} files, {num_bytes:,} bytes")
 
 
 class Cache:
