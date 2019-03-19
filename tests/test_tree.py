@@ -6,7 +6,6 @@ from mimicry.exceptions import NotAFolder
 
 from . import DATA_FOLDER
 
-print(DATA_FOLDER)
 
 class TreeTest(TestCase):
     def test_bad_root(self):
@@ -16,8 +15,15 @@ class TreeTest(TestCase):
 
     def test_read(self):
         t = Tree(DATA_FOLDER)
-        t.read()
+        self.assertEqual(t.num_files, 5)
+        self.assertEqual(t.num_bytes, 38)
 
-    def test_read(self):
-        t = Tree('~')
-        t.read()
+    def test_str(self):
+        t = Tree(DATA_FOLDER)
+        self.assertEqual(str(t), '5 files, 38 bytes')
+
+    def test_repr(self):
+        t = Tree(DATA_FOLDER)
+        self.assertEqual(
+            repr(t),
+            "Tree('/Users/leonov/Projects/leon/mimicry/tests/data')")

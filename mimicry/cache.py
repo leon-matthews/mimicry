@@ -14,28 +14,41 @@ logger = logging.getLogger(__name__)
 
 class Tree:
     def __init__(self, root):
-        root = os.path.expanduser(root)
-        root = os.path.abspath(root)
-        if not os.path.isdir(root):
-            raise NotAFolder(f'Given root not a folder: {root!r}')
-        self.root = root
+        self.root = self._check_root(root)
+        self.num_files = 0
+        self.num_bytes = 0
+        self.update()
 
-    def read(self):
-        num_bytes = num_files = 0
+    def update(self):
+        """
+        Update count of files and file sizes.
+        """
         for root, dirs, files, rootfd in os.fwalk(self.root):
-            num_files += len(files)
+            self.num_files += len(files)
             for name in files:
                 try:
                     s = os.stat(name, dir_fd=rootfd)
                 except FileNotFoundError:
                     path = os.path.join(root, name)
                     if os.path.islink(path):
+                        # Ignore broken symlinks
                         pass
-                        #logger.warning(f"Broken symlink ignored: '{path}'")
                     else:
                         raise
-                num_bytes += s.st_size
-        print(f"{num_files:,} files, {num_bytes:,} bytes")
+                self.num_bytes += s.st_size
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.root!r})"
+
+    def __str__(self):
+        return f"{self.num_files:,} files, {self.num_bytes:,} bytes"
+
+    def _check_root(self, root):
+        root = os.path.expanduser(root)
+        root = os.path.abspath(root)
+        if not os.path.isdir(root):
+            raise NotAFolder(f'Given root not a folder: {root!r}')
+        return root
 
 
 class Cache:
