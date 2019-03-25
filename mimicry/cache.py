@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 
 
 class Tree:
+    """
+    Represent a file-system tree.
+    """
     def __init__(self, root):
         self.root = self._check_root(root)
         self.num_files = 0
