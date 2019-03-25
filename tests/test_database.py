@@ -47,7 +47,7 @@ class TestDatabase(TestCase):
 
     def test_add_same(self):
         """
-        Adding the same file multiple times should create but one record.
+        Adding the same file multiple times should create just one record.
         """
         # Add one
         path = self._make_file('some/path/here/and/there.txt', 47)

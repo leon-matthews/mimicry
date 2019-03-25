@@ -33,8 +33,8 @@ class DB:
         The database file will be created
         """
         self.root = os.path.abspath(root)
-        path = os.path.join(self.root, 'mimicry.db')
-        self.connect(path)
+        self.path = os.path.join(self.root, 'mimicry.db')
+        self.connect(self.path)
 
     def add(self, path):
         """
@@ -70,6 +70,10 @@ class DB:
         Iterate over duplicate files.
         """
         duplicates = defaultdict(list)
+
+        query = ("SELECT count(*) AS count, sha256, bytes FROM "
+                 "files GROUP BY sha256 HAVING count > 1;")
+
         query = ("SELECT * FROM files WHERE sha256 IN "
                  "(SELECT sha256 FROM files GROUP BY sha256 HAVING count(*) > 1);")
         for row in self.connection.execute(query):

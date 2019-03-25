@@ -41,7 +41,8 @@ class Tree:
         return f"{self.__class__.__name__}({self.root!r})"
 
     def __str__(self):
-        return f"{self.num_files:,} files, {self.num_bytes:,} bytes"
+        root = self.root if self.root.endswith('/') else self.root + '/'
+        return f"{root}: {self.num_files:,} files, {self.num_bytes:,} bytes"
 
     def _check_root(self, root):
         root = os.path.expanduser(root)

@@ -19,11 +19,14 @@ class TreeTest(TestCase):
         self.assertEqual(t.num_bytes, 38)
 
     def test_str(self):
-        t = Tree(DATA_FOLDER)
-        self.assertEqual(str(t), '5 files, 38 bytes')
+        t = Tree('~')
+        string = str(t)
+        print(string)
+        self.assertTrue(string.startswith('/'))
+        self.assertTrue(string.endswith('mimicry/tests/data/: 5 files, 38 bytes'))
 
     def test_repr(self):
         t = Tree(DATA_FOLDER)
-        self.assertEqual(
-            repr(t),
-            "Tree('/Users/leonov/Projects/leon/mimicry/tests/data')")
+        string = repr(t)
+        self.assertTrue(string.startswith("Tree('/"))
+        self.assertTrue(string.endswith("/mimicry/tests/data')"))
