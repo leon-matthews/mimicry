@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Walk the file system, reading file metadata along the way.
 """
