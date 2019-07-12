@@ -98,8 +98,8 @@ class Cache:
         Returns dictionary containing statistics about cache.
         """
         return {
-            'num_files': self.db.count(),
-            'num_bytes': self.db.count_bytes(),
+            'num_files': self.db.files_count(),
+            'num_bytes': self.db.files_size(),
         }
 
     def update(self, root):

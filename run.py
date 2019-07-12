@@ -9,7 +9,6 @@ import os
 import sys
 import textwrap
 
-from mimicry.database import DB
 from mimicry.cache import Cache
 
 

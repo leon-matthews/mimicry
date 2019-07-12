@@ -2,6 +2,7 @@
 from collections import defaultdict, namedtuple
 import hashlib
 import logging
+from pprint import pprint as pp
 import os.path
 import sqlite3
 import textwrap
@@ -62,7 +63,9 @@ class DB:
         Delete the file record with the given path.
         """
         path = self._clean_path(path)
-        self.connection.execute('DELETE FROM files WHERE path=?;', (path,))
+        data = self._get(path)
+        pk = data['id']
+        self.connection.execute('DELETE FROM files WHERE id=?;', (pk,))
         self.connection.commit()
 
     def duplicates(self):
@@ -112,13 +115,37 @@ class DB:
 
     def get(self, path):
         """
-        Return a single file record.
+        Return a single `File` record.
+
+        Args:
+            path (str): Path to file.
+
+        Returns:
+            A `File` namedtuple, or `None` if not found.
+        """
+        data = self._get(path)
+        if data is None:
+            return None
+        data['path'] = path
+        data['relpath'] = relpath
+        data['sha256'] = data['sha256'].hex()
+        return File(**data)
+
+    def _get(self, path):
+        """
+        Fetch data about a single file, raw.
+
+        Args:
+            path (str): Path to file
+
+        Returns:
+            Raw dictionary of data from database layer.
         """
         path = self._clean_path(path)
         relpath = os.path.relpath(path, self.root)
         folder, filename = os.path.split(relpath)
         query = textwrap.dedent("""
-            SELECT name, bytes, mtime, updated, sha256, hashed
+            SELECT files.id as id, name, bytes, mtime, updated, sha256, hashed
                 FROM files INNER JOIN folders ON files.folder = folders.id
                 WHERE name=:filename AND
                       folder=(SELECT id FROM folders WHERE relpath=:folder);
@@ -126,13 +153,11 @@ class DB:
         cursor = self.connection.cursor()
         cursor.execute(query, {'folder':  folder, 'filename': filename})
         row = cursor.fetchone()
+
         if row is None:
             return None
         data = dict(row)
-        data['path'] = path
-        data['relpath'] = relpath
-        data['sha256'] = data['sha256'].hex()
-        return File(**data)
+        return data
 
     def _calculate_hash(self, path):
         BUFFSIZE = 4096 * 1000
