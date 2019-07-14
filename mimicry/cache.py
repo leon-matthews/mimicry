@@ -6,7 +6,6 @@ import logging
 import os
 
 from .database import DB
-from .exceptions import NotAFolder
 
 
 logger = logging.getLogger(__name__)

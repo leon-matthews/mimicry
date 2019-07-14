@@ -9,7 +9,8 @@ import os
 import sys
 import textwrap
 
-from mimicry.cache import Cache, Tree
+from mimicry.cache import Cache
+from mimicry.tree import Tree
 
 
 def setup_logging():

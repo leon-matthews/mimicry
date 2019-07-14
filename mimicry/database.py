@@ -2,7 +2,6 @@
 from collections import defaultdict, namedtuple
 import hashlib
 import logging
-from pprint import pprint as pp
 import os.path
 import sqlite3
 import textwrap
@@ -127,7 +126,6 @@ class DB:
         if data is None:
             return None
         data['path'] = path
-        data['relpath'] = relpath
         data['sha256'] = data['sha256'].hex()
         return File(**data)
 

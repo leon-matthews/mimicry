@@ -35,12 +35,8 @@ class Tree:
         """
         for root, dirs, files, rootfd in os.fwalk(self.root, follow_symlinks=False):
             for name in files:
-                try:
-                    s = os.lstat(name, dir_fd=rootfd)
-                    yield s
-                except FileNotFoundError:
-                    path = os.path.join(root, name)
-                    raise
+                s = os.lstat(name, dir_fd=rootfd)
+                yield s
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.root!r})"
