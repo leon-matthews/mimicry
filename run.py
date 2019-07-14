@@ -9,7 +9,7 @@ import os
 import sys
 import textwrap
 
-from mimicry.cache import Cache
+from mimicry.cache import Cache, Tree
 
 
 def setup_logging():
@@ -36,6 +36,8 @@ if __name__ == '__main__':
     print()
     print("Updating cache from file system...")
     files_updated = c.update(root)
+    tree = Tree(root)
+    print(str(tree))
     print("{:,} file records added".format(files_updated))
 
     stats = c.stats()

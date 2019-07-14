@@ -13,7 +13,7 @@ from .exceptions import NotUnderRoot
 logger = logging.getLogger(__name__)
 
 
-File = namedtuple('File', 'name path relpath bytes mtime updated sha256 hashed')
+File = namedtuple('File', 'name path relpath bytes mtime sha256 updated')
 
 
 class DB:
@@ -89,7 +89,7 @@ class DB:
         Iterate over every file in database.
         """
         query = textwrap.dedent("""
-            SELECT name, bytes, mtime, updated, sha256, hashed, relpath
+            SELECT name, bytes, mtime, sha256, updated, relpath
                 FROM files INNER JOIN folders ON files.folder = folders.id
         """).strip()
         for row in self.connection.execute(query):
@@ -145,7 +145,7 @@ class DB:
         relpath = os.path.relpath(path, self.root)
         folder, filename = os.path.split(relpath)
         query = textwrap.dedent("""
-            SELECT files.id as id, name, bytes, mtime, updated, sha256, hashed
+            SELECT files.id as id, name, bytes, mtime, sha256, updated
                 FROM files INNER JOIN folders ON files.folder = folders.id
                 WHERE name=:filename AND
                       folder=(SELECT id FROM folders WHERE relpath=:folder);
@@ -182,10 +182,9 @@ class DB:
             id              INTEGER PRIMARY KEY,
             name            TEXT NOT NULL,          -- File's name
             bytes           INTEGER,                -- File's size
-            mtime           INTEGER,                -- File's mtime
-            updated         INTEGER,                -- Time metadata last updated
+            mtime           INTEGER,                -- File's contents changed
             sha256          BLOB,                   -- Binary sha256 hash
-            hashed          INTEGER,                -- Time hash was last calculated
+            updated         INTEGER,                -- This record last updated
             folder          INTEGER NOT NULL,       -- Link to parent folder
             FOREIGN KEY(folder) REFERENCES folders(id),
             UNIQUE  (name, folder)
@@ -249,12 +248,11 @@ class DB:
         cursor.execute(query, parameters)
 
         # Update file
-        # We do this in two steps to preserve the file's rowid. Running a single
-        # 'INSERT OR REPLACE' increments that.
+        # (We do this in two steps to preserve the file's rowid. Running a single
+        # 'INSERT OR REPLACE' increments that.)
         query = textwrap.dedent("""
             UPDATE files SET
-                bytes=:bytes, mtime=:mtime, sha256=:sha256,
-                hashed=strftime('%s'), updated=strftime('%s')
+                bytes=:bytes, mtime=:mtime, sha256=:sha256, updated=strftime('%s')
                 WHERE name=:name AND folder=:folder;
         """).strip()
         cursor.execute(query, parameters)

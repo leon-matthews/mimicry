@@ -14,31 +14,34 @@ logger = logging.getLogger(__name__)
 
 class Tree:
     """
-    Represent a file-system tree.
+    Interface to the tree of folders and files under root.
     """
     def __init__(self, root):
         self.root = self._check_root(root)
-        self.num_files = 0
-        self.num_bytes = 0
-        self.update()
+        self.total_files = None
+        self.total_bytes = None
+        self.calculate_totals()
 
-    def update(self):
+    def calculate_totals(self):
         """
         Update count of files and file sizes.
         """
-        for root, dirs, files, rootfd in os.fwalk(self.root):
-            self.num_files += len(files)
+        for f in self.files():
+            self.total_files += 1
+            self.total_bytes += f.st_size
+
+    def files(self):
+        """
+        Yield an `os.stat_result` record for every file under root.
+        """
+        for root, dirs, files, rootfd in os.fwalk(self.root, follow_symlinks=False):
             for name in files:
                 try:
-                    s = os.stat(name, dir_fd=rootfd)
+                    s = os.lstat(name, dir_fd=rootfd)
+                    yield s
                 except FileNotFoundError:
                     path = os.path.join(root, name)
-                    if os.path.islink(path):
-                        # Ignore broken symlinks
-                        pass
-                    else:
-                        raise
-                self.num_bytes += s.st_size
+                    raise
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.root!r})"
