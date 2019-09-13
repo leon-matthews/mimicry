@@ -19,6 +19,11 @@ class TreeTest(TestCase):
         self.assertEqual(t.total_files, 5)
         self.assertEqual(t.total_bytes, 38)
 
+    def test_read_home(self):
+        t = Tree('~')
+        self.assertEqual(t.total_files, 5)
+        self.assertEqual(t.total_bytes, 38)
+
     def test_str(self):
         t = Tree(DATA_FOLDER)
         string = str(t)

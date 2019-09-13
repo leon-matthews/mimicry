@@ -1,5 +1,5 @@
 """
-Database of files' metadata and sha256 content hash.
+High-level operations on file tree metadata cache.
 """
 
 import logging
