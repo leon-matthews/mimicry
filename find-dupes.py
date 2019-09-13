@@ -1,17 +1,16 @@
 
-import binascii
-import os
-import pprint
 import sys
 
 from dupes.cache import Cache
 
 
 def main():
+    """
+    Actually try and find duplicates.
+    """
     db_path = './files.db'
     c = Cache(db_path)
     duplicates = c.calculate_duplicates()
-    from pprint import pprint; pprint(duplicates)
 
     total_count = 0
     total_bytes = 0
@@ -30,7 +29,6 @@ def main():
                     redundant_bytes += f.size
                 else:
                     print(f.path)
-
 
     print("{:,} duplicated files".format(total_count))
     print("{:,} duplicated bytes".format(total_bytes))

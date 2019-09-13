@@ -1,5 +1,4 @@
 
-
 import logging
 import os
 
@@ -13,7 +12,14 @@ class Tree:
     """
     Interface to the tree of folders and files under root.
     """
+
     def __init__(self, root):
+        """
+        Initialiser.
+
+        Args:
+            root (str, path): Full path to root folder.
+        """
         self.root = self._check_root(root)
         self.total_files = None
         self.total_bytes = None
