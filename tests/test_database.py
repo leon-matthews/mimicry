@@ -40,10 +40,10 @@ class TestDatabase(TestCase):
         self.assertEqual(f.bytes, 1069)
         self.assertGreater(f.mtime, 1e9)
         self.assertGreater(f.updated, 1e9)
-        self.assertGreater(f.hashed, 1e9)
         self.assertEqual(
             f.sha256,
-            'e42558af9bc23f4aad7e40f39eb6f5c4a224f714a511a3177abc6639df2b3129')
+            'e42558af9bc23f4aad7e40f39eb6f5c4a224f714a511a3177abc6639df2b3129'
+        )
 
     def test_add_same(self):
         """

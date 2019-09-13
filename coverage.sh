@@ -14,6 +14,6 @@ fi
 
 COVERAGE=python3-coverage
 
-$COVERAGE run --module unittest --failfast --buffer --catch --verbose
+$COVERAGE run --module unittest --failfast --catch
 $COVERAGE report --show-missing
 rm -f .coverage

@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class Tree:
     """
-    Interface to the tree of folders and files under root.
+    Tree of folders and files under given root.
     """
 
     def __init__(self, root):
@@ -18,7 +18,7 @@ class Tree:
         Initialiser.
 
         Args:
-            root (str, path): Full path to root folder.
+            root (str): Full path to root folder.
         """
         self.root = self._check_root(root)
         self.total_files = None
