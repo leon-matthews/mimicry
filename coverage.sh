@@ -13,7 +13,7 @@ if [ $# -ne 0 ]; then
     exit 1
 fi
 
-COVERAGE=python3-coverage
+COVERAGE=coverage-3.7
 
 $COVERAGE run --branch --module unittest --failfast --catch
 $COVERAGE report --show-missing
