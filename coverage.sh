@@ -4,6 +4,7 @@
 # Show coverage report if all tests pass.
 
 set -o nounset
+set -o errexit
 set +o xtrace
 
 if [ $# -ne 0 ]; then
@@ -14,6 +15,6 @@ fi
 
 COVERAGE=python3-coverage
 
-$COVERAGE run --module unittest --failfast --catch
+$COVERAGE run --branch --module unittest --failfast --catch
 $COVERAGE report --show-missing
 rm -f .coverage
