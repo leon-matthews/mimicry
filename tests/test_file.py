@@ -1,6 +1,7 @@
 
 from pathlib import Path
 from pprint import pprint as pp
+import re
 from unittest import TestCase
 
 from mimicry.file import File
@@ -24,3 +25,13 @@ class TestFile(TestCase):
         self.assertEqual(
             f.relpath(this_folder),
             Path('data/text1.txt'))
+
+    def test_repr(self):
+        path = Path(DATA_FOLDER, 'text1.txt')
+        f = File(path)
+        self.assertTrue(re.match(r"^File\(.*tests/data/text1.txt'\)$", repr(f)))
+
+    def test_str(self):
+        path = Path(DATA_FOLDER, 'text1.txt')
+        f = File(path)
+        self.assertEqual(str(f), "text1.txt: 1,337 bytes")

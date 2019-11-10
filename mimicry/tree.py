@@ -1,8 +1,11 @@
 
 import logging
 import os
+from pathlib import Path
+from pprint import pprint as pp
 
 from .exceptions import NotAFolder
+from .file import File
 
 
 logger = logging.getLogger(__name__)
@@ -12,7 +15,6 @@ class Tree:
     """
     Tree of folders and files under given root.
     """
-
     def __init__(self, root):
         """
         Initialiser.
@@ -20,29 +22,16 @@ class Tree:
         Args:
             root (str): Full path to root folder.
         """
-        self.root = self._check_root(root)
+        self.root = self._clean_root(root)
         self.total_files = None
         self.total_bytes = None
-        self.calculate_totals()
-
-    def calculate_totals(self):
-        """
-        Update count of files and file sizes.
-        """
-        self.total_files = 0
-        self.total_bytes = 0
-        for f in self.files():
-            self.total_files += 1
-            self.total_bytes += f.st_size
+        self._calculate_totals()
 
     def files(self):
-        """
-        Yield an `os.stat_result` record for every file under root.
-        """
         for root, dirs, files, rootfd in os.fwalk(self.root, follow_symlinks=False):
+            folder = Path(root)
             for name in files:
-                s = os.lstat(name, dir_fd=rootfd)
-                yield s
+                yield File(folder / name)
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.root!r})"
@@ -51,7 +40,21 @@ class Tree:
         root = self.root if self.root.endswith('/') else self.root + '/'
         return f"{root}: {self.total_files:,} files, {self.total_bytes:,} bytes"
 
-    def _check_root(self, root):
+    def _calculate_totals(self):
+        """
+        Update count of files and file sizes.
+
+        For speed, we by-pass the `files()` method.
+        """
+        self.total_files = 0
+        self.total_bytes = 0
+        for root, dirs, files, rootfd in os.fwalk(self.root, follow_symlinks=False):
+            for name in files:
+                s = os.lstat(name, dir_fd=rootfd)
+                self.total_files += 1
+                self.total_bytes += s.st_size
+
+    def _clean_root(self, root):
         root = os.path.expanduser(root)
         root = os.path.abspath(root)
         if not os.path.isdir(root):

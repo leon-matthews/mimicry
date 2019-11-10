@@ -1,13 +1,20 @@
 
 from dataclasses import dataclass
 import hashlib
+from pathlib import Path
 from pprint import pprint as pp
 
 
 class File:
     def __init__(self, path):
-        self.name = path.name
-        self.path = path
+        """
+        Initialiser.
+
+        Args:
+            path: Path to file
+        """
+        self.path = Path(path).resolve()
+        self.name = self.path.name
 
         # Cached properties
         self._mtime = None
@@ -39,6 +46,12 @@ class File:
         if self._size is None:
             self._update_stat()
         return self._size
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}('{self.path!s}')"
+
+    def __str__(self):
+        return f"{self.name}: {self.size:,} bytes"
 
     def _update_sha256(self):
         BUFFSIZE = 4096 * 1000
