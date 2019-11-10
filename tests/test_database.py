@@ -8,10 +8,12 @@ from mimicry.database import DB, File, NotUnderRoot
 
 
 class TestDatabase(TestCase):
+    def setUp(self):
+        self.db = DB(':memory:')
+
     @classmethod
     def setUpClass(cls):
         cls.folder = TemporaryDirectory(prefix='mimicry-')
-        cls.db = DB(cls.folder.name)
 
     @classmethod
     def tearDownClass(cls):
@@ -61,14 +63,6 @@ class TestDatabase(TestCase):
         count_after = self.db.files_count()
         self.assertEqual(count, count_after)
 
-    def test_files_size(self):
-        bytes_at_start = self.db.files_size()
-        self.assertIsInstance(bytes_at_start, int)
-        path = self._make_file('whatever/happens/next.opus', 123)
-        self.db.add(path)
-        increased_by = self.db.files_size() - bytes_at_start
-        self.assertEqual(increased_by, 123)
-
     def test_calculate_hash(self):
         empty_sha256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
         empty_path = self._make_file('so/much/empty.txt', 0)
@@ -83,6 +77,20 @@ class TestDatabase(TestCase):
         names = [row['name'] for row in self.db.connection.execute(query)]
         self.assertEqual(names, ['files', 'folders', 'metadata'])
 
+    def test_delete(self):
+        for f in self.db.files():
+            from pprint import pprint; pprint(f)
+
+        # Add one
+        self.assertEqual(self.db.files_count(), 0)
+        path = self._make_file('add/then/delete.txt', 512)
+        self.db.add(path)
+
+
+
+        self.assertEqual(self.db.files_count(), 2)
+
+
     def test_file_iteration(self):
         count = 0
         for f in self.db.files():
@@ -91,6 +99,14 @@ class TestDatabase(TestCase):
             self.assertEqual(len(f.sha256), 64)
         self.assertGreater(count, 0)
         self.assertEqual(count, self.db.files_count())
+
+    def test_files_size(self):
+        bytes_at_start = self.db.files_size()
+        self.assertIsInstance(bytes_at_start, int)
+        path = self._make_file('whatever/happens/next.opus', 123)
+        self.db.add(path)
+        increased_by = self.db.files_size() - bytes_at_start
+        self.assertEqual(increased_by, 123)
 
     def test_get_not_under_root(self):
         path = '/not/found/here'

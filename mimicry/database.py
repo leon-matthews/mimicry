@@ -12,64 +12,6 @@ from .exceptions import NotUnderRoot
 logger = logging.getLogger(__name__)
 
 
-File = namedtuple('File', 'name relpath path bytes mtime sha256 updated')
-
-
-class Updater:
-    """
-    Create or update database from mounted file tree.
-    """
-
-    def __init__(self, root):
-        self.root = root
-
-    def update(self):
-        """
-        Update and create cache records for all files under given root.
-
-        Returns number of file records updated.
-        """
-        files_updated = 0
-        for root, dirs, files in os.walk(self.root):
-            root = os.path.abspath(root)
-            dirs.sort(key=str.lower)
-            files.sort(key=str.lower)
-
-            for name in files:
-                path = os.path.join(root, name)
-                logger.debug("Add %r", path)
-                was_updated = self.db.add(path)
-                if was_updated:
-                    files_updated += 1
-
-        return files_updated
-
-    def _update_file(self, path):
-        """
-        Examines file in path, skipping re-calculating the sha256 hash if the
-        name and mtime of the file are unchanged from the cache record.
-
-        Returns True if file record was updated, False otherwise.
-        """
-        # Load file metadata from disk (without sha256 for now)
-        local_file = File(path=path)
-
-        # Compare file with file from cache.  Skip if mtime the same.
-        try:
-            cached_file = self.db.load(path)
-        except UnicodeEncodeError:
-            print(repr(path))
-            raise
-        if cached_file and cached_file.mtime == local_file.mtime:
-            return False
-
-        # Calculate hash, save to db
-        print("+{}".format(path))
-        local_file.from_file(path, calculate_hash=True)
-        self.db.save(local_file)
-        return True
-
-
 class DB:
     """
     Store metadata for a file tree.
@@ -81,15 +23,15 @@ class DB:
     It is an error to try and perform operations outside the file tree's
     root. A `NotUnderRoot` exception will be raised if attempted.
     """
-    def __init__(self, root):
+    def __init__(self, path=None):
         """
-        Create or open database file with given path.
+        Open existing, or create database file.
 
-        The database file will be created
+        Args:
+            root (path): Path to database file, use `None` to create DB in RAM.
         """
-        self.root = os.path.abspath(root)
-        self.path = os.path.join(self.root, 'mimicry.db')
-        self.connect(self.path)
+        self.path = path
+        self.connection = self._connect(self.path)
 
     def add(self, path):
         """
@@ -104,13 +46,6 @@ class DB:
         except sqlite3.Error:
             cursor.execute("ROLLBACK TO add_file;")
             raise
-
-    def connect(self, path):
-        self.connection = sqlite3.connect(path, isolation_level=None)
-        self.connection.row_factory = sqlite3.Row
-        # ~ self.connection.set_trace_callback(print)
-        self._check_schema()
-        self._run_pragmas()
 
     def delete(self, path):
         """
@@ -186,6 +121,17 @@ class DB:
         data['sha256'] = data['sha256'].hex()
         return File(**data)
 
+    def _connect(self, path=None):
+        """
+        Args:
+            path
+        """
+        self.connection = sqlite3.connect(path, isolation_level=None)
+        self.connection.row_factory = sqlite3.Row
+        self.connection.set_trace_callback(print)
+        self._check_schema()
+        self._run_pragmas()
+
     def _get(self, path):
         """
         Fetch data about a single file, raw.
@@ -213,14 +159,6 @@ class DB:
             return None
         data = dict(row)
         return data
-
-    def _calculate_hash(self, path):
-        BUFFSIZE = 4096 * 1000
-        sha256 = hashlib.sha256()
-        with open(path, 'rb') as f:
-            for chunk in iter(lambda: f.read(BUFFSIZE), b''):
-                sha256.update(chunk)
-        return sha256.digest()
 
     def _check_schema(self):
         """
