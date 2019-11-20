@@ -54,7 +54,7 @@ class File:
         return f"{self.name}: {self.size:,} bytes"
 
     def _update_sha256(self):
-        BUFFSIZE = 4096 * 1000
+        BUFFSIZE = 4096 * 1024
         sha256 = hashlib.sha256()
         with open(self.path, 'rb') as f:
             for chunk in iter(lambda: f.read(BUFFSIZE), b''):
