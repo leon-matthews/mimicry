@@ -1,11 +1,13 @@
 
-from dataclasses import dataclass
 import hashlib
 from pathlib import Path
 from pprint import pprint as pp
 
 
 class File:
+    """
+    Metadata for file.
+    """
     def __init__(self, path):
         """
         Initialiser.

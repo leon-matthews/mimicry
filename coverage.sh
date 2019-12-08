@@ -10,6 +10,8 @@ set -o nounset
 set -o errexit
 set +o xtrace
 
+
+# Usage
 if [ $# -ne 0 ]; then
     echo "Produce a coverage report for unit tests"
     echo "usage: $0"

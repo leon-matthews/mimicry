@@ -2,6 +2,7 @@
 from pathlib import Path
 from pprint import pprint as pp
 import re
+import sys
 from unittest import TestCase
 
 from mimicry.file import File

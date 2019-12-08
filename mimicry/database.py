@@ -3,6 +3,8 @@ from collections import defaultdict, namedtuple
 import hashlib
 import logging
 import os.path
+from pathlib import Path
+from pprint import pprint as pp
 import sqlite3
 import textwrap
 
@@ -23,25 +25,30 @@ class DB:
     It is an error to try and perform operations outside the file tree's
     root. A `NotUnderRoot` exception will be raised if attempted.
     """
-    def __init__(self, path=None):
+    def __init__(self, path, root):
         """
         Open existing, or create database file.
 
         Args:
-            root (path): Path to database file, use `None` to create DB in RAM.
+            path (Path): Path to database file, use `None` to create DB in RAM.
+            root (Path): Root directory of tree.
         """
-        self.path = path
-        self.connection = self._connect(self.path)
+        if not root.is_dir():
+            raise RuntimeError(f"Root must be an existing folder: {root}")
+        self.root = root
+        self.connection = self._connect(path, verbose=False)
+        self._check_schema()
+        self._run_pragmas()
 
     def add(self, path):
         """
         Read single file with given path to the database.
         """
-        path = self._clean_path(path)
+        file_ = self.read_file(path)
         cursor = self.connection.cursor()
         cursor.execute('SAVEPOINT add_file;')
         try:
-            self._do_add(path, cursor)
+            self._do_add(cursor, file_)
             cursor.execute("RELEASE add_file;")
         except sqlite3.Error:
             cursor.execute("ROLLBACK TO add_file;")
@@ -51,7 +58,7 @@ class DB:
         """
         Delete the file record with the given path.
         """
-        path = self._clean_path(path)
+        path = self.load_file(path)
         data = self._get(path)
         pk = data['id']
         self.connection.execute('DELETE FROM files WHERE id=?;', (pk,))
@@ -107,7 +114,7 @@ class DB:
         Return a single `File` record.
 
         Args:
-            path (str): Path to file.
+            path (Path): Path to file.
 
         Returns:
             A `File` namedtuple, or `None` if not found.
@@ -121,16 +128,18 @@ class DB:
         data['sha256'] = data['sha256'].hex()
         return File(**data)
 
-    def _connect(self, path=None):
+    def _connect(self, path, verbose=False):
         """
+        Connect to database.
+
         Args:
             path
         """
-        self.connection = sqlite3.connect(path, isolation_level=None)
-        self.connection.row_factory = sqlite3.Row
-        self.connection.set_trace_callback(print)
-        self._check_schema()
-        self._run_pragmas()
+        connection = sqlite3.connect(path, isolation_level=None)
+        connection.row_factory = sqlite3.Row
+        if verbose:
+            connection.set_trace_callback(logger.debug)
+        return connection
 
     def _get(self, path):
         """
@@ -212,14 +221,15 @@ class DB:
         Raises `NotUnderRoot` if given path is not... under... root...
         """
         # Check that path is under our root
-        path = os.path.abspath(path)
-        commonpath = os.path.commonpath([path, self.root])
-        if not commonpath.startswith(self.root):
-            message = f"Given path not under database's root folder: {path}"
-            raise NotUnderRoot(message)
+        path = path.resolve()
+        try:
+            commonpath = path.relative_to(self.root)
+        except ValueError:
+            message = f"Given path not under '{self.root!s}': {path}"
+            raise NotUnderRoot(message) from None
         return path
 
-    def _do_add(self, path, cursor):
+    def _do_add(self, cursor, file_):
         relpath = os.path.relpath(path, self.root)
         folder, filename = os.path.split(relpath)
 
@@ -229,7 +239,7 @@ class DB:
 
         # Build parameters
         parameters = {
-            'name': filename,
+            'name': path.name,
             'bytes': os.path.getsize(path),
             'mtime': int(os.path.getmtime(path)),
             'folder': folder_id,

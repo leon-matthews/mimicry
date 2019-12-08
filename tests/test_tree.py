@@ -16,8 +16,12 @@ class TreeTest(TestCase):
             Tree('/banana/apple/sausage')
 
     def test_files(self):
-        for f in Tree(DATA_FOLDER).files():
+        files = []
+        tree = Tree(DATA_FOLDER)
+        for f in tree.files():
             self.assertIsInstance(f, File)
+            files.append(f)
+        self.assertEqual(len(files), tree.total_files)
 
     def test_read(self):
         t = Tree(DATA_FOLDER)

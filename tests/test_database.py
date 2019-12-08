@@ -1,15 +1,16 @@
 
 import os.path
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
 
-from mimicry.database import DB, File, NotUnderRoot
+from mimicry.database import DB, NotUnderRoot
 
 
 class TestDatabase(TestCase):
     def setUp(self):
-        self.db = DB(':memory:')
+        self.db = DB(':memory:', Path('/'))
 
     @classmethod
     def setUpClass(cls):
@@ -86,8 +87,6 @@ class TestDatabase(TestCase):
         path = self._make_file('add/then/delete.txt', 512)
         self.db.add(path)
 
-
-
         self.assertEqual(self.db.files_count(), 2)
 
 
@@ -128,4 +127,4 @@ class TestDatabase(TestCase):
         path = os.path.join(folder, filename)
         with open(path, 'wb') as fp:
             fp.write(b'@'*size)
-        return path
+        return Path(path)

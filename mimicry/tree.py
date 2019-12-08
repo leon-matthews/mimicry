@@ -27,7 +27,10 @@ class Tree:
         self.total_bytes = None
         self._calculate_totals()
 
-    def files(self):
+    def files(self) -> File:
+        """
+        Generator over all files under Tree's root, top-down order.
+        """
         for root, dirs, files, rootfd in os.fwalk(self.root, follow_symlinks=False):
             folder = Path(root)
             for name in files:
