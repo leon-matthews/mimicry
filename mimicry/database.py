@@ -1,5 +1,6 @@
 
 from collections import defaultdict, namedtuple
+from dataclasses import dataclass
 import hashlib
 import logging
 import os.path
@@ -9,9 +10,40 @@ import sqlite3
 import textwrap
 
 from .exceptions import NotUnderRoot
+from .file import File
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class FileRecord:
+    """
+    File metadata from database.
+    """
+    name: str
+    path: str
+    size: int
+    mtime: int
+    sha256: bytes
+
+    @classmethod
+    def from_database(cls, root, row):
+        """
+        Create object from database row data.
+
+        Args:
+            root (str): Root folder of database.
+            row (dict): Raw row database.
+        """
+        kwargs = {
+            'name': row['name'],
+            'path': root / row['relpath'] / row['name'],
+            'size': row['size'],
+            'mtime': row['mtime'],
+            'sha256': row['sha256'],
+        }
+        return cls(**kwargs)
 
 
 class DB:
@@ -25,26 +57,44 @@ class DB:
     It is an error to try and perform operations outside the file tree's
     root. A `NotUnderRoot` exception will be raised if attempted.
     """
-    def __init__(self, path, root):
+    def __init__(self, path):
         """
         Open existing, or create database file.
 
         Args:
-            path (Path): Path to database file, use `None` to create DB in RAM.
+            path (Path): Path to database file
             root (Path): Root directory of tree.
         """
-        if not root.is_dir():
-            raise RuntimeError(f"Root must be an existing folder: {root}")
-        self.root = root
+        self.root = path.parent
+        if not self.root.is_dir():
+            raise RuntimeError(f"Database root must be an existing folder: {self.root}")
         self.connection = self._connect(path, verbose=False)
         self._check_schema()
         self._run_pragmas()
 
+    def _clean_path(self, path):
+        """
+        TODO: where and when?
+        Clean path, and check for validity.
+
+        Raises `NotUnderRoot` if given path is not... under... root...
+        """
+        # Check that path is under our root
+        try:
+            commonpath = path.relative_to(self.root)
+        except ValueError:
+            message = f"Given path not under '{self.root!s}': {path}"
+            raise NotUnderRoot(message) from None
+        return path
+
     def add(self, path):
         """
-        Read single file with given path to the database.
+        Add or update single file record in database.
+
+        Args:
+            path: Full path to file.
         """
-        file_ = self.read_file(path)
+        file_ = File(path)
         cursor = self.connection.cursor()
         cursor.execute('SAVEPOINT add_file;')
         try:
@@ -59,7 +109,7 @@ class DB:
         Delete the file record with the given path.
         """
         path = self.load_file(path)
-        data = self._get(path)
+        data = self.get_row(path)
         pk = data['id']
         self.connection.execute('DELETE FROM files WHERE id=?;', (pk,))
         self.connection.commit()
@@ -70,13 +120,13 @@ class DB:
         """
         duplicates = defaultdict(list)
 
-        query = ("SELECT count(*) AS count, sha256, bytes FROM "
+        query = ("SELECT count(*) AS count, sha256, size FROM "
                  "files GROUP BY sha256 HAVING count > 1;")
 
         query = ("SELECT * FROM files WHERE sha256 IN "
                  "(SELECT sha256 FROM files GROUP BY sha256 HAVING count(*) > 1);")
         for row in self.connection.execute(query):
-            f = File(fields=row)
+            f = FileRecord(fields=row)
             duplicates[f.sha256].append(f)
         return duplicates
 
@@ -85,15 +135,12 @@ class DB:
         Iterate over every file in database.
         """
         query = textwrap.dedent("""
-            SELECT name, bytes, mtime, sha256, updated, relpath
+            SELECT name, size, mtime, sha256, updated, relpath
                 FROM files INNER JOIN folders ON files.folder = folders.id
         """).strip()
         for row in self.connection.execute(query):
             data = dict(row)
-            data['relpath'] = os.path.join(data['relpath'], data['name'])
-            data['path'] = os.path.join(self.root, data['relpath'])
-            data['sha256'] = data['sha256'].hex()
-            yield File(**data)
+            yield FileRecord.from_database(self.root, data)
 
     def files_count(self):
         """
@@ -106,12 +153,12 @@ class DB:
         """
         Return sum of the bytes accross of all file records.
         """
-        cursor = self.connection.execute("SELECT sum(bytes) FROM files;")
+        cursor = self.connection.execute("SELECT sum(size) FROM files;")
         return cursor.fetchone()[0]
 
     def get(self, path):
         """
-        Return a single `File` record.
+        Return a single `FileRecord` record.
 
         Args:
             path (Path): Path to file.
@@ -119,14 +166,10 @@ class DB:
         Returns:
             A `File` namedtuple, or `None` if not found.
         """
-        data = self._get(path)
-        if data is None:
+        row = self.get_row(path)
+        if row is None:
             return None
-        del data['id']
-        data['path'] = path
-        data['relpath'] = os.path.relpath(path, self.root)
-        data['sha256'] = data['sha256'].hex()
-        return File(**data)
+        return FileRecord.from_database(self.root, row)
 
     def _connect(self, path, verbose=False):
         """
@@ -141,7 +184,7 @@ class DB:
             connection.set_trace_callback(logger.debug)
         return connection
 
-    def _get(self, path):
+    def get_row(self, path):
         """
         Fetch data about a single file, raw.
 
@@ -151,19 +194,22 @@ class DB:
         Returns:
             Raw dictionary of data from database layer.
         """
-        path = self._clean_path(path)
-        relpath = os.path.relpath(path, self.root)
-        folder, filename = os.path.split(relpath)
         query = textwrap.dedent("""
-            SELECT files.id as id, name, bytes, mtime, sha256, updated
+            SELECT files.id as id, name, relpath, size, mtime, sha256, updated
                 FROM files INNER JOIN folders ON files.folder = folders.id
                 WHERE name=:filename AND
                       folder=(SELECT id FROM folders WHERE relpath=:folder);
         """).strip()
+        path = Path(path)
+        try:
+            relpath = path.relative_to(self.root)
+        except ValueError:
+            message = f"Given path not under '{self.root!s}': {path}"
+            raise NotUnderRoot(message) from None
+        folder = str(relpath.parent)
         cursor = self.connection.cursor()
-        cursor.execute(query, {'folder':  folder, 'filename': filename})
+        cursor.execute(query, {'folder':  folder, 'filename': relpath.name})
         row = cursor.fetchone()
-
         if row is None:
             return None
         data = dict(row)
@@ -183,7 +229,7 @@ class DB:
             -- Metadata every file found under database root
             id              INTEGER PRIMARY KEY,
             name            TEXT NOT NULL,          -- File's name
-            bytes           INTEGER,                -- File's size
+            size            INTEGER,                -- File's size in bytes
             mtime           INTEGER,                -- File's contents changed
             sha256          BLOB,                   -- Binary sha256 hash
             updated         INTEGER,                -- This record last updated
@@ -214,23 +260,8 @@ class DB:
         self.connection.executescript(schema)
         self.connection.commit()
 
-    def _clean_path(self, path):
-        """
-        Clean path, and check for validity.
-
-        Raises `NotUnderRoot` if given path is not... under... root...
-        """
-        # Check that path is under our root
-        path = path.resolve()
-        try:
-            commonpath = path.relative_to(self.root)
-        except ValueError:
-            message = f"Given path not under '{self.root!s}': {path}"
-            raise NotUnderRoot(message) from None
-        return path
-
     def _do_add(self, cursor, file_):
-        relpath = os.path.relpath(path, self.root)
+        relpath = file_.relative_to(self.root)
         folder, filename = os.path.split(relpath)
 
         cursor.execute("INSERT OR IGNORE INTO folders(relpath) VALUES (?)", (folder,))
@@ -239,11 +270,11 @@ class DB:
 
         # Build parameters
         parameters = {
-            'name': path.name,
-            'bytes': os.path.getsize(path),
-            'mtime': int(os.path.getmtime(path)),
+            'name': file_.name,
+            'size': file_.size,
+            'mtime': file_.mtime,
             'folder': folder_id,
-            'sha256': self._calculate_hash(path),
+            'sha256': file_.sha256,
         }
 
         # Create bare file
@@ -255,7 +286,7 @@ class DB:
         # 'INSERT OR REPLACE' increments that.)
         query = textwrap.dedent("""
             UPDATE files SET
-                bytes=:bytes, mtime=:mtime, sha256=:sha256, updated=strftime('%s')
+                size=:size, mtime=:mtime, sha256=:sha256, updated=strftime('%s')
                 WHERE name=:name AND folder=:folder;
         """).strip()
         cursor.execute(query, parameters)

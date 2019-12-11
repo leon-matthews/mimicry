@@ -6,7 +6,7 @@ from pprint import pprint as pp
 
 class File:
     """
-    Metadata for file.
+    Metadata for actual file.
     """
     def __init__(self, path):
         """
@@ -16,7 +16,6 @@ class File:
             path: Path to file
         """
         self.path = Path(path).resolve()
-        self.name = self.path.name
 
         # Cached properties
         self._mtime = None
@@ -29,7 +28,11 @@ class File:
             self._update_stat()
         return self._mtime
 
-    def relpath(self, root):
+    @property
+    def name(self):
+        return self.path.name
+
+    def relative_to(self, root):
         return self.path.relative_to(root)
 
     @property

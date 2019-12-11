@@ -1,50 +1,84 @@
 
 import os.path
 from pathlib import Path
+from pprint import pprint as pp
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
 
-from mimicry.database import DB, NotUnderRoot
+from mimicry.database import DB, FileRecord, NotUnderRoot
+from mimicry.file import File
 
 
-class TestDatabase(TestCase):
-    def setUp(self):
-        self.db = DB(':memory:', Path('/'))
+class TestCaseData(TestCase):
+    """
+    `TestCase` that also creates temporary folder and database.
 
+    The folder and database persist accross all methods - use with care.
+    """
     @classmethod
     def setUpClass(cls):
         cls.folder = TemporaryDirectory(prefix='mimicry-')
+        cls.db_path = Path(cls.folder.name) / 'mimicry.db'
+        cls.db = DB(cls.db_path)
 
     @classmethod
     def tearDownClass(cls):
         # ~ import subprocess
-        # ~ subprocess.run(['sqlite3', cls.db.path, '.dump'])
+        # ~ subprocess.run(['sqlite3', cls.db_path, '.dump'])
         cls.folder.cleanup()
 
+    def make_file(self, relpath, size):
+        """
+        Make a file under our temporary folder.
+
+        Returns (`Path`): Path to created file.
+        """
+        # Create parent directory
+        relpath = Path(relpath)
+        folder = Path(self.folder.name) / relpath.parent
+        folder.mkdir(exist_ok=True, parents=True)
+
+        # Create file
+        path = folder / relpath.name
+        with open(path, 'wb') as fp:
+            fp.write(b'@'*size)
+        return Path(path)
+
+
+class TestInit(TestCaseData):
+    def test_create_tables(self):
+        """
+        Tables have been created automatically.
+        """
+        query = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
+        names = [row['name'] for row in self.db.connection.execute(query)]
+        self.assertEqual(names, ['files', 'folders', 'metadata'])
+
+
+class TestAdd(TestCaseData):
     def test_add(self):
         """
         Add file successfully.
         """
-        path = self._make_file('something/else/was/here.png', 1069)
+        path = self.make_file('something/else/was/here.png', 1069)
 
         # Before
-        f = self.db.get(path)
-        self.assertTrue(f is None)
+        record = self.db.get(path)
+        self.assertTrue(record is None)
 
         # Add
         self.db.add(path)
 
         # After
-        f = self.db.get(path)
-        self.assertIsInstance(f, File)
-        self.assertEqual(f.name, 'here.png')
-        self.assertEqual(f.relpath, 'something/else/was/here.png')
-        self.assertEqual(f.bytes, 1069)
-        self.assertGreater(f.mtime, 1e9)
-        self.assertGreater(f.updated, 1e9)
+        record = self.db.get(path)
+        self.assertIsInstance(record, FileRecord)
+        self.assertEqual(record.name, 'here.png')
+        self.assertTrue(str(record.path).endswith('something/else/was/here.png'))
+        self.assertEqual(record.size, 1069)
+        self.assertGreater(record.mtime, 1e9)
         self.assertEqual(
-            f.sha256,
+            record.sha256.hex(),
             'e42558af9bc23f4aad7e40f39eb6f5c4a224f714a511a3177abc6639df2b3129'
         )
 
@@ -53,7 +87,7 @@ class TestDatabase(TestCase):
         Adding the same file multiple times should create just one record.
         """
         # Add one
-        path = self._make_file('some/path/here/and/there.txt', 47)
+        path = self.make_file('some/path/here/and/there.txt', 47)
         self.db.add(path)
         count = self.db.files_count()
 
@@ -64,67 +98,56 @@ class TestDatabase(TestCase):
         count_after = self.db.files_count()
         self.assertEqual(count, count_after)
 
-    def test_calculate_hash(self):
-        empty_sha256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
-        empty_path = self._make_file('so/much/empty.txt', 0)
-        calculated = self.db._calculate_hash(empty_path).hex()
-        self.assertEqual(calculated, empty_sha256)
 
-    def test_create_tables(self):
-        """
-        Tables have been created automatically.
-        """
-        query = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
-        names = [row['name'] for row in self.db.connection.execute(query)]
-        self.assertEqual(names, ['files', 'folders', 'metadata'])
-
+class TestDelete(TestCaseData):
     def test_delete(self):
-        for f in self.db.files():
-            from pprint import pprint; pprint(f)
-
-        # Add one
+        # Start with none
         self.assertEqual(self.db.files_count(), 0)
-        path = self._make_file('add/then/delete.txt', 512)
+
+        # Create file
+        path = self.make_file('add/then/delete.txt', 512)
         self.db.add(path)
 
-        self.assertEqual(self.db.files_count(), 2)
+        # Now we have one
+        self.assertEqual(self.db.files_count(), 1)
 
+
+class TestQuery(TestCaseData):
+    """
+    Read only queries over same database.
+    """
+    def setUp(self):
+        # Create two files
+        super().setUp()
+        self.db.add(self.make_file('some/path/first.webp', 47))
+        self.db.add(self.make_file('some/path/second.zst', 48))
 
     def test_file_iteration(self):
         count = 0
-        for f in self.db.files():
+        for record in self.db.files():
             count += 1
-            self.assertIsInstance(f, File)
-            self.assertEqual(len(f.sha256), 64)
+            self.assertIsInstance(record, FileRecord)
+            self.assertEqual(len(record.sha256), 32)
+            self.assertEqual(len(record.sha256.hex()), 64)
         self.assertGreater(count, 0)
         self.assertEqual(count, self.db.files_count())
 
     def test_files_size(self):
         bytes_at_start = self.db.files_size()
         self.assertIsInstance(bytes_at_start, int)
-        path = self._make_file('whatever/happens/next.opus', 123)
+        path = self.make_file('whatever/happens/next.opus', 123)
         self.db.add(path)
         increased_by = self.db.files_size() - bytes_at_start
         self.assertEqual(increased_by, 123)
+
+
+class TestGet(TestCaseData):
+    def test_get_missing(self):
+        path = self.db_path.parent / 'missing.png'
+        record = self.db.get(path)
+        self.assertTrue(record is None)
 
     def test_get_not_under_root(self):
         path = '/not/found/here'
         with self.assertRaises(NotUnderRoot):
             self.db.get(path)
-
-    def _make_file(self, relpath, size):
-        """
-        Make a single file under our temporary folder.
-
-        Returns full path to file.
-        """
-        # Create parent directory
-        dirname, filename = os.path.split(relpath)
-        folder = os.path.join(self.folder.name, dirname)
-        os.makedirs(folder)
-
-        # Create file
-        path = os.path.join(folder, filename)
-        with open(path, 'wb') as fp:
-            fp.write(b'@'*size)
-        return Path(path)
