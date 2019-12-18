@@ -108,7 +108,6 @@ class DB:
         """
         Delete the file record with the given path.
         """
-        path = self.load_file(path)
         data = self.get_row(path)
         pk = data['id']
         self.connection.execute('DELETE FROM files WHERE id=?;', (pk,))
@@ -155,6 +154,11 @@ class DB:
         """
         cursor = self.connection.execute("SELECT sum(size) FROM files;")
         return cursor.fetchone()[0]
+
+    def folders_count(self):
+        cursor = self.connection.execute("SELECT count(*) FROM folders;")
+        return cursor.fetchone()[0]
+
 
     def get(self, path):
         """

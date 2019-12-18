@@ -14,7 +14,7 @@ class TestCaseData(TestCase):
     """
     `TestCase` that also creates temporary folder and database.
 
-    The folder and database persist accross all methods - use with care.
+    The folder *and* database persist accross all methods - use with care.
     """
     @classmethod
     def setUpClass(cls):
@@ -24,8 +24,7 @@ class TestCaseData(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # ~ import subprocess
-        # ~ subprocess.run(['sqlite3', cls.db_path, '.dump'])
+        # ~ import subprocess; subprocess.run(['sqlite3', cls.db_path, '.dump'])
         cls.folder.cleanup()
 
     def make_file(self, relpath, size):
@@ -44,16 +43,6 @@ class TestCaseData(TestCase):
         with open(path, 'wb') as fp:
             fp.write(b'@'*size)
         return Path(path)
-
-
-class TestInit(TestCaseData):
-    def test_create_tables(self):
-        """
-        Tables have been created automatically.
-        """
-        query = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
-        names = [row['name'] for row in self.db.connection.execute(query)]
-        self.assertEqual(names, ['files', 'folders', 'metadata'])
 
 
 class TestAdd(TestCaseData):
@@ -103,13 +92,23 @@ class TestDelete(TestCaseData):
     def test_delete(self):
         # Start with none
         self.assertEqual(self.db.files_count(), 0)
+        self.assertEqual(self.db.folders_count(), 0)
 
-        # Create file
-        path = self.make_file('add/then/delete.txt', 512)
-        self.db.add(path)
+        # Create files
+        paths = []
+        paths.append(self.make_file('soon/be/dead.txt', 512))
+        paths.append(self.make_file('gonna/bite/it.txt', 345))
+        for path in paths:
+            self.db.add(path)
+        self.assertEqual(self.db.files_count(), 2)
+        self.assertEqual(self.db.folders_count(), 2)
 
-        # Now we have one
-        self.assertEqual(self.db.files_count(), 1)
+        # Delete all files.
+        # Note that folder records are *not* removed.
+        for path in paths:
+            self.db.delete(path)
+        self.assertEqual(self.db.files_count(), 0)
+        self.assertEqual(self.db.folders_count(), 2)
 
 
 class TestQuery(TestCaseData):
@@ -121,6 +120,14 @@ class TestQuery(TestCaseData):
         super().setUp()
         self.db.add(self.make_file('some/path/first.webp', 47))
         self.db.add(self.make_file('some/path/second.zst', 48))
+
+    def test_create_tables(self):
+        """
+        Tables have been created automatically.
+        """
+        query = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
+        names = [row['name'] for row in self.db.connection.execute(query)]
+        self.assertEqual(names, ['files', 'folders', 'metadata'])
 
     def test_file_iteration(self):
         count = 0
@@ -140,8 +147,6 @@ class TestQuery(TestCaseData):
         increased_by = self.db.files_size() - bytes_at_start
         self.assertEqual(increased_by, 123)
 
-
-class TestGet(TestCaseData):
     def test_get_missing(self):
         path = self.db_path.parent / 'missing.png'
         record = self.db.get(path)
