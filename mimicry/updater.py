@@ -10,7 +10,7 @@ class Updater:
 
     def update(self):
         """
-        Update and create cache records for all files under given root.
+        Update and create database records for all files under given root.
 
         Returns number of file records updated.
         """

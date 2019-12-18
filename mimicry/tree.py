@@ -27,7 +27,7 @@ class Tree:
         self.total_bytes = None
         self._calculate_totals()
 
-    def files(self) -> File:
+    def files(self):
         """
         Generator over all files under Tree's root, top-down order.
         """

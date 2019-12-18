@@ -63,7 +63,6 @@ class DB:
 
         Args:
             path (Path): Path to database file
-            root (Path): Root directory of tree.
         """
         self.root = path.parent
         if not self.root.is_dir():
@@ -94,7 +93,13 @@ class DB:
         Args:
             path: Full path to file.
         """
-        file_ = File(path)
+        if isinstance(path, File):
+            file_ = path
+        else:
+            file_ = File(path)
+
+        logger.debug(f"Add {file_} to database")
+
         cursor = self.connection.cursor()
         cursor.execute('SAVEPOINT add_file;')
         try:
@@ -158,7 +163,6 @@ class DB:
     def folders_count(self):
         cursor = self.connection.execute("SELECT count(*) FROM folders;")
         return cursor.fetchone()[0]
-
 
     def get(self, path):
         """

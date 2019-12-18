@@ -6,11 +6,13 @@ Walk the file system, reading file metadata along the way.
 
 import logging
 import os
+from pathlib import Path
+from pprint import pprint as pp
 import sys
 import textwrap
 
-from mimicry.cache import Cache
-from mimicry.tree import Tree
+from .database import DB
+from .tree import Tree
 
 
 def setup_logging():
@@ -22,12 +24,22 @@ if __name__ == '__main__':
 
     if len(sys.argv) != 2:
         program_name = os.path.basename(os.path.dirname(sys.argv[0]))
-        print("usage: {} path".format(program_name))
+        print("usage: {} PATH".format(program_name))
         sys.exit(1)
 
-    root = sys.argv[1]
+    root = Path(sys.argv[1]).resolve()
+    tree = Tree(root)
 
-    c = Cache(root)
+    path = root / 'mimicry.db'
+    db = DB(path)
+
+    db.connection.execute("BEGIN;")
+    for file_ in tree.files():
+        db.add(file_)
+
+    db.connection.execute("COMMIT;")
+
+    sys.exit(0)
 
     print()
     print("Deleting obsolete records...")
