@@ -57,17 +57,17 @@ class DB:
     It is an error to try and perform operations outside the file tree's
     root. A `NotUnderRoot` exception will be raised if attempted.
     """
-    def __init__(self, path):
+    def __init__(self, path, verbose=False):
         """
         Open existing, or create database file.
 
         Args:
             path (Path): Path to database file
         """
-        self.root = path.parent
+        self.root = path.parent.resolve()
         if not self.root.is_dir():
             raise RuntimeError(f"Database root must be an existing folder: {self.root}")
-        self.connection = self._connect(path, verbose=False)
+        self.connection = self._connect(path, verbose=verbose)
         self._check_schema()
         self._run_pragmas()
 
@@ -98,7 +98,7 @@ class DB:
         else:
             file_ = File(path)
 
-        logger.debug(f"Add {file_} to database")
+        # ~ logger.debug(f"Add {file_} to database")
 
         cursor = self.connection.cursor()
         cursor.execute('SAVEPOINT add_file;')
