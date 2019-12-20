@@ -9,20 +9,42 @@ logger = logging.getLogger(__name__)
 
 
 class Updater:
+    db_file = 'mimicry.db'
+
     def __init__(self, root):
         self.root = root.resolve()
-        self.db_path = root / 'mimicry.db'
+        self.db_path = root / self.db_file
 
     def update(self):
+        # Create database
         logger.debug(f"Create database: '{self.db_path}'")
         self.db = DB(self.db_path)
 
+        # Create file tree
         logger.debug(f"Examine file system from: '{self.root}'")
-        self.tree = Tree(self.root)
+        ignored = self.build_ignored_set()
+        self.tree = Tree(self.root, show_hidden=False, ignore=ignored)
         logger.debug(
             f"Found: {self.tree.total_files:,} files, "
             f"{self.tree.total_bytes:,} bytes")
+
+        # Kill orphans
+        # TODO
+
+        # Update files
         self.update_files()
+
+    def build_ignored_set(self):
+        """
+        Build set of paths to ignore
+        """
+        # Ignore own database files
+        ignored = set()
+        path = str(self.db_path)
+        ignored.add(path)
+        for suffix in ('-wal', '-shm'):
+            ignored.add(path + suffix)
+        return ignored
 
     def update_files(self):
         """

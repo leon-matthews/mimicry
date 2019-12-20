@@ -15,7 +15,7 @@ class Tree:
     """
     Tree of folders and files under given root.
     """
-    def __init__(self, root, show_hidden=False):
+    def __init__(self, root, show_hidden=False, ignore=None):
         """
         Initialiser.
 
@@ -24,9 +24,14 @@ class Tree:
                 Full path to root folder.
             show_hidden (bool):
                 Show files and folders starting with full-stop. Defaults to `False`.
+            ignore (set):
+                Optional set of full path strings to ignore.
         """
         self.root = self._clean_root(root)
         self.show_hidden = show_hidden
+        self.ignore = ignore
+        if self.ignore is None:
+            self.ignore = set()
 
         self.total_files = None
         self.total_bytes = None
@@ -36,8 +41,8 @@ class Tree:
         """
         Generator over all files under Tree's root, top-down order.
         """
-        for name, root, rootfd in self._walk():
-            yield File(os.path.join(root, name))
+        for name, path, rootfd in self._walk():
+            yield File(path)
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.root!r})"
@@ -54,7 +59,7 @@ class Tree:
         """
         self.total_files = 0
         self.total_bytes = 0
-        for name, root, rootfd in self._walk():
+        for name, path, rootfd in self._walk():
             s = os.lstat(name, dir_fd=rootfd)
             self.total_files += 1
             self.total_bytes += s.st_size
@@ -71,7 +76,7 @@ class Tree:
         Yield tuple for every file under root, skipping hidden files if requested.
 
         Yields:
-            3-tuple with file name, folder, and open folder descriptor.
+            3-tuple with file name, full-path, and open descriptor to folder.
         """
         for root, dirs, files, rootfd in os.fwalk(self.root, follow_symlinks=False):
             # Skip hidden folders?
@@ -84,5 +89,8 @@ class Tree:
                 # Skip hidden files
                 if not self.show_hidden and name.startswith('.'):
                     continue
-
-                yield (name, root, rootfd)
+                path = os.path.join(root, name)
+                if path in self.ignore:
+                    logger.info(f"Skipping ignored path: {path}")
+                else:
+                    yield (name, path, rootfd)

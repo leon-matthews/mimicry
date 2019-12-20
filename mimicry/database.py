@@ -64,7 +64,8 @@ class DB:
         Args:
             path (Path): Path to database file
         """
-        self.root = path.parent.resolve()
+        self.path = path.resolve()
+        self.root = path.parent
         if not self.root.is_dir():
             raise RuntimeError(f"Database root must be an existing folder: {self.root}")
         self.connection = self._connect(path, verbose=verbose)
@@ -98,7 +99,7 @@ class DB:
         else:
             file_ = File(path)
 
-        # ~ logger.debug(f"Add {file_} to database")
+        logger.debug(f"Add {file_} to database")
 
         cursor = self.connection.cursor()
         cursor.execute('SAVEPOINT add_file;')
