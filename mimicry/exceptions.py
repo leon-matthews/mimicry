@@ -11,6 +11,6 @@ class NotAFolder(MimicryError):
 class NotUnderRoot(MimicryError):
     """
     The metadata database (say *that* quickly 17 times) should only operate
-    on paths under its root folder.
+    on paths found under its root folder.
     """
     pass

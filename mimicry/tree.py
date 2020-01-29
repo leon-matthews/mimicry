@@ -55,7 +55,7 @@ class Tree:
         """
         Update count of files and file sizes.
 
-        For speed, we by-pass the `files()` method.
+        For speed, we avoid creating `File` objects by-passing the `files()` method.
         """
         self.total_files = 0
         self.total_bytes = 0

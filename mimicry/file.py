@@ -6,7 +6,7 @@ from pprint import pprint as pp
 
 class File:
     """
-    Metadata for actual file.
+    Interface to an actual file.
     """
     def __init__(self, path):
         """
@@ -17,7 +17,7 @@ class File:
         """
         self.path = Path(path).resolve()
 
-        # Cached properties
+        # Cached properties - calculated only on demand.
         self._mtime = None
         self._sha256 = None
         self._size = None
@@ -56,7 +56,7 @@ class File:
         return f"{self.__class__.__name__}('{self.path!s}')"
 
     def __str__(self):
-        return f"{self.name}: {self.size:,} bytes"
+        return f"{self.name} ({self.size:,} bytes)"
 
     def _update_sha256(self):
         BUFFSIZE = 4096 * 1024

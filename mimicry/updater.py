@@ -1,5 +1,6 @@
 
 import logging
+from pprint import pprint as pp
 
 from .database import DB
 from .tree import Tree
@@ -9,11 +10,14 @@ logger = logging.getLogger(__name__)
 
 
 class Updater:
+    """
+    Create and update the metadata database.
+    """
     db_file = 'mimicry.db'
 
     def __init__(self, root):
         self.root = root.resolve()
-        self.db_path = root / self.db_file
+        self.db_path = self.root / self.db_file
 
     def update(self):
         # Create database
@@ -23,6 +27,7 @@ class Updater:
         # Create file tree
         logger.debug(f"Examine file system from: '{self.root}'")
         ignored = self.build_ignored_set()
+        pp(ignored)
         self.tree = Tree(self.root, show_hidden=False, ignore=ignored)
         logger.debug(
             f"Found: {self.tree.total_files:,} files, "

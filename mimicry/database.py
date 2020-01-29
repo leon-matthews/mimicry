@@ -1,11 +1,9 @@
 
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 from dataclasses import dataclass
-import hashlib
 import logging
 import os.path
 from pathlib import Path
-from pprint import pprint as pp
 import sqlite3
 import textwrap
 
@@ -19,7 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FileRecord:
     """
-    File metadata from database.
+    A database record for a single file.
     """
     name: str
     path: str
@@ -48,7 +46,7 @@ class FileRecord:
 
 class DB:
     """
-    Store metadata for a file tree.
+    Store `FileRecord` objects.
 
     An SQLite database file (`mimicry.db`) is created in the root of the
     given file tree will maintain metadata about that tree, including a hash
@@ -71,21 +69,6 @@ class DB:
         self.connection = self._connect(path, verbose=verbose)
         self._check_schema()
         self._run_pragmas()
-
-    def _clean_path(self, path):
-        """
-        TODO: where and when?
-        Clean path, and check for validity.
-
-        Raises `NotUnderRoot` if given path is not... under... root...
-        """
-        # Check that path is under our root
-        try:
-            commonpath = path.relative_to(self.root)
-        except ValueError:
-            message = f"Given path not under '{self.root!s}': {path}"
-            raise NotUnderRoot(message) from None
-        return path
 
     def add(self, path):
         """
@@ -180,19 +163,6 @@ class DB:
             return None
         return FileRecord.from_database(self.root, row)
 
-    def _connect(self, path, verbose=False):
-        """
-        Connect to database.
-
-        Args:
-            path
-        """
-        connection = sqlite3.connect(path, isolation_level=None)
-        connection.row_factory = sqlite3.Row
-        if verbose:
-            connection.set_trace_callback(logger.debug)
-        return connection
-
     def get_row(self, path):
         """
         Fetch data about a single file, raw.
@@ -268,6 +238,34 @@ class DB:
         """)
         self.connection.executescript(schema)
         self.connection.commit()
+
+    def _clean_path(self, path):
+        """
+        TODO: where and when?
+        Clean path, and check for validity.
+
+        Raises `NotUnderRoot` if given path is... not under root.
+        """
+        # Check that path is under our root
+        try:
+            commonpath = path.relative_to(self.root)
+        except ValueError:
+            message = f"Given path not under '{self.root!s}': {path}"
+            raise NotUnderRoot(message) from None
+        return path
+
+    def _connect(self, path, verbose=False):
+        """
+        Connect to database.
+
+        Args:
+            path
+        """
+        connection = sqlite3.connect(path, isolation_level=None)
+        connection.row_factory = sqlite3.Row
+        if verbose:
+            connection.set_trace_callback(logger.debug)
+        return connection
 
     def _do_add(self, cursor, file_):
         relpath = file_.relative_to(self.root)
