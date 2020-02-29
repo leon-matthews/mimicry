@@ -19,6 +19,21 @@ drive, but can be anywhere.
    slow.
 
 
+TODO
+====
+
+* Command line interface
+    - Hidden files
+    - Verbosity
+
+* Ignored files and folders
+
+* Updating records:
+    - Refresh/update existing records
+
+
+
+
 License
 =======
 

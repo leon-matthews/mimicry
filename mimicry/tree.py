@@ -3,6 +3,7 @@ import logging
 import os
 from pathlib import Path
 from pprint import pprint as pp
+from time import perf_counter
 
 from .exceptions import NotAFolder
 from .file import File
@@ -57,12 +58,18 @@ class Tree:
 
         For speed, we avoid creating `File` objects by-passing the `files()` method.
         """
+        logger.debug("Calculate file tree totals under: %s", self.root)
         self.total_files = 0
         self.total_bytes = 0
+        started = perf_counter()
         for name, path, rootfd in self._walk():
             s = os.lstat(name, dir_fd=rootfd)
             self.total_files += 1
             self.total_bytes += s.st_size
+        elapsed = perf_counter() - started
+        logger.info(
+            f"Calculated file tree totals for {self.total_files} files "
+            f"in {elapsed:.3f} seconds")
 
     def _clean_root(self, root):
         root = os.path.expanduser(root)
@@ -83,14 +90,21 @@ class Tree:
             if not self.show_hidden:
                 for index, name in enumerate(dirs):
                     if name.startswith('.'):
+                        path = os.path.join(root, dirs[index])
+                        logger.debug(f"Skipping hidden folder: {path}")
                         del dirs[index]
 
             for name in files:
-                # Skip hidden files
-                if not self.show_hidden and name.startswith('.'):
-                    continue
                 path = os.path.join(root, name)
+
+                # Skip hidden files?
+                if (not self.show_hidden) and name.startswith('.'):
+                    logger.debug(f"Skipping hidden file: {path}")
+                    continue
+
+                # Skip ignored files
                 if path in self.ignore:
-                    logger.info(f"Skipping ignored path: {path}")
-                else:
-                    yield (name, path, rootfd)
+                    logger.debug(f"Skipping ignored path: {path}")
+                    continue
+
+                yield (name, path, rootfd)

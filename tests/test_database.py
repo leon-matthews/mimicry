@@ -63,7 +63,7 @@ class TestAdd(TestCaseData):
         record = self.db.get(path)
         self.assertIsInstance(record, FileRecord)
         self.assertEqual(record.name, 'here.png')
-        self.assertTrue(str(record.path).endswith('something/else/was/here.png'))
+        self.assertEqual(record.relpath, 'something/else/was/here.png')
         self.assertEqual(record.size, 1069)
         self.assertGreater(record.mtime, 1e9)
         self.assertEqual(

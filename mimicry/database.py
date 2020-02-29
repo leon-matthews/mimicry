@@ -2,7 +2,7 @@
 from collections import defaultdict
 from dataclasses import dataclass
 import logging
-import os.path
+from os.path import join, split
 from pathlib import Path
 import sqlite3
 import textwrap
@@ -20,13 +20,13 @@ class FileRecord:
     A database record for a single file.
     """
     name: str
-    path: str
+    relpath: str
     size: int
     mtime: int
     sha256: bytes
 
     @classmethod
-    def from_database(cls, root, row):
+    def from_database(cls, row):
         """
         Create object from database row data.
 
@@ -36,7 +36,7 @@ class FileRecord:
         """
         kwargs = {
             'name': row['name'],
-            'path': root / row['relpath'] / row['name'],
+            'relpath': join(row['relpath'], row['name']),
             'size': row['size'],
             'mtime': row['mtime'],
             'sha256': row['sha256'],
@@ -128,7 +128,7 @@ class DB:
         """).strip()
         for row in self.connection.execute(query):
             data = dict(row)
-            yield FileRecord.from_database(self.root, data)
+            yield FileRecord.from_database(data)
 
     def files_count(self):
         """
@@ -161,7 +161,7 @@ class DB:
         row = self.get_row(path)
         if row is None:
             return None
-        return FileRecord.from_database(self.root, row)
+        return FileRecord.from_database(row)
 
     def get_row(self, path):
         """
@@ -269,7 +269,7 @@ class DB:
 
     def _do_add(self, cursor, file_):
         relpath = file_.relative_to(self.root)
-        folder, filename = os.path.split(relpath)
+        folder, filename = split(relpath)
 
         cursor.execute("INSERT OR IGNORE INTO folders(relpath) VALUES (?)", (folder,))
         cursor.execute("SELECT id FROM folders WHERE relpath=?;", (folder,))

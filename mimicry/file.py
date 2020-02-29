@@ -3,6 +3,7 @@ import hashlib
 from pathlib import Path
 from pprint import pprint as pp
 
+from .utils import file_size
 
 class File:
     """
@@ -32,8 +33,8 @@ class File:
     def name(self):
         return self.path.name
 
-    def relative_to(self, root):
-        return self.path.relative_to(root)
+    def relative_to(self, root) -> str:
+        return str(self.path.relative_to(root))
 
     @property
     def sha256(self):
@@ -56,7 +57,8 @@ class File:
         return f"{self.__class__.__name__}('{self.path!s}')"
 
     def __str__(self):
-        return f"{self.name} ({self.size:,} bytes)"
+        size = file_size(self.size)
+        return f"{self.name} ({size})"
 
     def _update_sha256(self):
         BUFFSIZE = 4096 * 1024
