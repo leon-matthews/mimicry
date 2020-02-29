@@ -32,4 +32,4 @@ class TestFile(TestCase):
     def test_str(self):
         path = Path(DATA_FOLDER, 'text1.txt')
         f = File(path)
-        self.assertEqual(str(f), "text1.txt (1,337 bytes)")
+        self.assertEqual(str(f), "text1.txt (1.3kB)")
