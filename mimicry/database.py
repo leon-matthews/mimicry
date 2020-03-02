@@ -76,15 +76,10 @@ class DB:
         Add or update single file record in database.
 
         Args:
-            path: Full path to file.
+            path (str): Path to the file
         """
-        if isinstance(path, File):
-            file_ = path
-        else:
-            file_ = File(path)
-
-        logger.debug(f"Add {file_} to database")
-
+        file_ = File(path)
+        logger.debug(f"Add %s to database", file_)
         cursor = self.connection.cursor()
         cursor.execute('SAVEPOINT add_file;')
         try:

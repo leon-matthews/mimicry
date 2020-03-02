@@ -11,6 +11,11 @@ from . import DATA_FOLDER
 
 
 class TestFile(TestCase):
+    def test_file_not_found(self):
+        message = '/no/file/to/be/found/here'
+        with self.assertRaisesRegex(FileNotFoundError, message):
+            File('/no/file/to/be/found/here')
+
     def test_properties(self):
         path = Path(DATA_FOLDER, 'text1.txt')
         self.assertTrue(path.is_file())

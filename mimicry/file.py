@@ -5,6 +5,7 @@ from pprint import pprint as pp
 
 from .utils import file_size
 
+
 class File:
     """
     Interface to an actual file.
@@ -17,6 +18,8 @@ class File:
             path: Path to file
         """
         self.path = Path(path).resolve()
+        if not self.path.exists():
+            raise FileNotFoundError(self.path)
 
         # Cached properties - calculated only on demand.
         self._mtime = None
