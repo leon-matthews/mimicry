@@ -26,14 +26,13 @@ class Tree:
             show_hidden (bool):
                 Show files and folders starting with full-stop. Defaults to `False`.
             ignore (set):
-                Optional set of full path strings to ignore.
+                Optional set of paths (relative to given root) to ignore. Not
+                very featureful, but only really intended to skip our own
+                database files (ie. sqlite3 and '.wal' and '.shm' files)
         """
         self.root = self._clean_root(root)
         self.show_hidden = show_hidden
-        self.ignore = ignore
-        if self.ignore is None:
-            self.ignore = set()
-
+        self.ignore = self._build_ignore_set(ignore)
         self.total_files = None
         self.total_bytes = None
         self._calculate_totals()
@@ -46,11 +45,25 @@ class Tree:
             yield File(path)
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.root!r})"
+        root = str(self.root)
+        root = root if root.endswith('/') else root + '/'
+        return f"{self.__class__.__name__}('{root}')"
 
     def __str__(self):
-        root = self.root if self.root.endswith('/') else self.root + '/'
+        root = str(self.root)
+        root = root if root.endswith('/') else root + '/'
         return f"{root}: {self.total_files:,} files, {self.total_bytes:,} bytes"
+
+    def _build_ignore_set(self, ignore):
+        """
+        Build a set of full paths to ignore.
+        """
+        if ignore is None:
+            ignore = []
+        ignore_set = set()
+        for relpath in ignore:
+            ignore_set.add(os.path.join(self.root, relpath))
+        return ignore_set
 
     def _calculate_totals(self):
         """
@@ -72,10 +85,9 @@ class Tree:
             f"in {elapsed:.3f} seconds")
 
     def _clean_root(self, root):
-        root = os.path.expanduser(root)
-        root = os.path.abspath(root)
-        if not os.path.isdir(root):
-            raise NotAFolder(f'Given root not a folder: {root!r}')
+        root = Path(root).expanduser().resolve(strict=False)
+        if not root.is_dir():
+            raise NotAFolder(f"Given root not a folder: '{root!s}'")
         return root
 
     def _walk(self):
@@ -91,7 +103,7 @@ class Tree:
                 for index, name in enumerate(dirs):
                     if name.startswith('.'):
                         path = os.path.join(root, dirs[index])
-                        logger.debug(f"Skipping hidden folder: {path}")
+                        logger.debug("Skipping hidden folder: %s", path)
                         del dirs[index]
 
             for name in files:
@@ -99,12 +111,12 @@ class Tree:
 
                 # Skip hidden files?
                 if (not self.show_hidden) and name.startswith('.'):
-                    logger.debug(f"Skipping hidden file: {path}")
+                    logger.debug("Skipping hidden file: %s", path)
                     continue
 
                 # Skip ignored files
                 if path in self.ignore:
-                    logger.debug(f"Skipping ignored path: {path}")
+                    logger.debug("Skipping ignored path: %s", path)
                     continue
 
                 yield (name, path, rootfd)

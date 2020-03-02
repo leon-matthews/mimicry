@@ -3,12 +3,13 @@ import hashlib
 from pathlib import Path
 from pprint import pprint as pp
 
+from .exceptions import NotAFile
 from .utils import file_size
 
 
 class File:
     """
-    Interface to an actual file.
+    Interface to an actual file on the current file system.
     """
     def __init__(self, path):
         """
@@ -19,7 +20,7 @@ class File:
         """
         self.path = Path(path).resolve()
         if not self.path.exists():
-            raise FileNotFoundError(self.path)
+            raise NotAFile(self.path)
 
         # Cached properties - calculated only on demand.
         self._mtime = None

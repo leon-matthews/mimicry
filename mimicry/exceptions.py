@@ -4,6 +4,10 @@ class MimicryError(RuntimeError):
     pass
 
 
+class NotAFile(MimicryError):
+    pass
+
+
 class NotAFolder(MimicryError):
     pass
 
