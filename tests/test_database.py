@@ -111,6 +111,14 @@ class TestDelete(TestCaseData):
         self.assertEqual(self.db.folders_count(), 2)
 
 
+class TestErrors(TestCase):
+    def test_not_existing_folder(self):
+        path = Path('/no/such/folder/here')
+        error = "Database root must be an existing folder: '/no/such/folder"
+        with self.assertRaisesRegex(RuntimeError, error):
+            DB(path)
+
+
 class TestQuery(TestCaseData):
     """
     Read only queries over same database.

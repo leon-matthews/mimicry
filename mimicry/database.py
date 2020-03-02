@@ -65,7 +65,8 @@ class DB:
         self.path = path.resolve()
         self.root = path.parent
         if not self.root.is_dir():
-            raise RuntimeError(f"Database root must be an existing folder: {self.root}")
+            message = f"Database root must be an existing folder: '{self.root!s}'"
+            raise RuntimeError(message)
         self.connection = self._connect(path, verbose=verbose)
         self._check_schema()
         self._run_pragmas()
