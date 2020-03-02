@@ -17,10 +17,10 @@ class TreeTest(TestCase):
 
     def test_calculate_totals(self):
         tree = Tree(DATA_FOLDER)
-        self.assertEqual(tree.total_files, 7)
+        self.assertEqual(tree.total_files, 6)
         self.assertEqual(tree.total_bytes, 1375)
 
-    def test_calculate_totals_hidden(self):
+    def test_calculate_totals_hidden_files(self):
         tree = Tree(DATA_FOLDER, show_hidden=True)
         self.assertEqual(tree.total_files, 8)
         self.assertEqual(tree.total_bytes, 2286)
@@ -33,7 +33,7 @@ class TreeTest(TestCase):
             self.assertIsInstance(f, File)
             total_bytes += f.size
             files.append(f)
-        self.assertEqual(len(files), 7)
+        self.assertEqual(len(files), 6)
         self.assertEqual(total_bytes, 1375)
 
     def test_iterate_ignore(self):
@@ -57,6 +57,5 @@ class TreeTest(TestCase):
     def test_str(self):
         tree = Tree(DATA_FOLDER)
         string = str(tree)
-        pp(string)
         self.assertTrue(string.startswith('/'))
-        self.assertTrue(string.endswith('mimicry/tests/data/: 7 files, 1,375 bytes'))
+        self.assertTrue(string.endswith('mimicry/tests/data/: 6 files, 1,375 bytes'))
