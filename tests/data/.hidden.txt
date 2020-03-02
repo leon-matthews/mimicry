@@ -1,0 +1,18 @@
+
+The history of hidden files
+===========================
+
+Ever wondered why there are files on your Linux system, starting with a dot? The short
+answer: they are shortcuts. The story begins many years ago when the first file systems
+were created on UNIX. To allow easy navigation, a single file with a dot (.) was added to
+each directory. Secondly, a double dot file (..) was added to easily move up in the
+directory structure. As these files had no real data in them, a quick hack was added to
+the ls binary.
+
+The change made to the ls binary involved checking for the first character. If that was a
+dot, it should be ignored. And it worked great!
+
+Something which was not anticipated is what we now know as a hidden file. If you create a
+file starting with a dot, it will become a file on disk, but which is not displayed by
+default. This behavior is the result of the earlier hack applied to the ls binary.
+
