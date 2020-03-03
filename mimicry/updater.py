@@ -29,7 +29,7 @@ class Updater:
         self.db = DB(self.db_path)
 
         # Create file tree
-        ignored = self.build_ignored_set()
+        ignored = self.build_ignored()
         files = self.read_files(ignored)
 
         # Kill orphans
@@ -40,20 +40,37 @@ class Updater:
         for orphan in orphans:
             self.db.delete(self.root / orphan)
 
-        # Update database
-        self.update_records(files)
+        # Compare files to existing records
+        to_update = []
+        for relpath in files:
+            file_ = files[relpath]
+            record = records.get(relpath)
+            if self.should_update(file_, record):
+                to_update.append(relpath)
 
-    def build_ignored_set(self):
+        # Update database
+        self.update_records(to_update)
+
+    def should_update(self, file_, record):
+        if record is None:
+            return True
+
+        if file_.size == record.size:
+            logger.debug("File has same size, do not update: %s", record.relpath)
+            return False
+
+        return True
+
+    def build_ignored(self):
         """
-        Build set of paths to ignore
+        Build list of relative paths to ignore
         """
         # Ignore own database files
-        ignored = set()
-        path = str(self.db_path)
-        ignored.add(path)
+        relpaths = []
+        relpaths.append(self.db_file)
         for suffix in ('-wal', '-shm'):
-            ignored.add(path + suffix)
-        return ignored
+            relpaths.append(self.db_file + suffix)
+        return relpaths
 
     def find_orphans(self, existing, tree) -> List[FileRecord]:
         """
@@ -102,7 +119,6 @@ class Updater:
         """
         num_updated = 0
         for relpath in files:
-            file_ = files[relpath]
-            self.db.add(file_)
+            self.db.add(relpath)
             num_updated += 1
         logger.info(f"Updated records for {num_updated:,} files")
