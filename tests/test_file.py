@@ -5,7 +5,7 @@ import re
 import sys
 from unittest import TestCase
 
-from mimicry.exceptions import NotAFile
+from mimicry.exceptions import NotAbsolute, NotAFile
 from mimicry.file import File
 
 from . import DATA_FOLDER
@@ -16,10 +16,15 @@ class TestFile(TestCase):
         self.path = Path(DATA_FOLDER, 'text1.txt')
         self.file = File(self.path)
 
-    def test_file_not_found(self):
-        message = '/no/file/to/be/found/here'
-        with self.assertRaisesRegex(NotAFile, message):
+    def test_path_not_found(self):
+        path = '/no/file/to/be/found/here'
+        with self.assertRaisesRegex(NotAFile, path):
             File('/no/file/to/be/found/here')
+
+    def test_path_not_absolute(self):
+        path = 'not/an/absolute/path'
+        with self.assertRaisesRegex(NotAbsolute, path):
+            File(path)
 
     def test_basic_properties(self):
         # Basics

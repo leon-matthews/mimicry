@@ -3,7 +3,7 @@ import hashlib
 from pathlib import Path
 from pprint import pprint as pp
 
-from .exceptions import NotAFile
+from .exceptions import NotAbsolute, NotAFile
 from .utils import file_size
 
 
@@ -18,9 +18,14 @@ class File:
         Args:
             path: Path to file
         """
-        self.path = Path(path).resolve()
-        if not self.path.exists():
-            raise NotAFile(self.path)
+        # Check path
+        path = Path(path)
+        if not path.is_absolute():
+            raise NotAbsolute(path)
+        path = path.resolve()
+        if not path.exists():
+            raise NotAFile(path)
+        self.path = path
 
         # Cached properties - calculated only on demand.
         self._mtime = None

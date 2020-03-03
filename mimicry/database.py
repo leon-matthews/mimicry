@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import logging
 from os.path import join, split
 from pathlib import Path
+from pprint import pprint as pp
 import sqlite3
 import textwrap
 
@@ -76,7 +77,7 @@ class DB:
         Add or update single file record in database.
 
         Args:
-            path (str): Path to the file
+            path (str): Absolute path to the file
         """
         file_ = File(path)
         logger.debug(f"Add %s to database", file_)

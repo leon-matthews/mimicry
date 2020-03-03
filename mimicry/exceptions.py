@@ -8,6 +8,10 @@ class NotAFile(MimicryError):
     pass
 
 
+class NotAbsolute(MimicryError):
+    pass
+
+
 class NotAFolder(MimicryError):
     pass
 
