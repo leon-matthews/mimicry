@@ -23,15 +23,10 @@ TODO
 ====
 
 * Command line interface
-    - Hidden files
     - Verbosity
 
-* Ignored files and folders
-
-* Updating records:
-    - Refresh/update existing records
-
-
+* Tree
+    - Sort folders and file lists
 
 
 License

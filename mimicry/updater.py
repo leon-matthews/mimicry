@@ -119,6 +119,6 @@ class Updater:
         """
         num_updated = 0
         for relpath in files:
-            self.db.add(relpath)
+            self.db.add(self.root / relpath)
             num_updated += 1
         logger.info(f"Updated records for {num_updated:,} files")
