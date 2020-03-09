@@ -7,6 +7,7 @@ from time import perf_counter
 
 from .exceptions import NotAFolder
 from .file import File
+from .utils import normalise
 
 
 logger = logging.getLogger(__name__)
@@ -105,10 +106,11 @@ class Tree:
                         path = os.path.join(root, dirs[index])
                         logger.debug("Skipping hidden folder: %s", path)
                         del dirs[index]
+
             # Sort
             if sort:
-                dirs.sort()
-                files.sort()
+                dirs.sort(key=normalise)
+                files.sort(key=normalise)
 
             # Check files
             for name in files:
