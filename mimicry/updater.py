@@ -56,7 +56,7 @@ class Updater:
             return True
 
         if file_.size == record.size:
-            logger.debug("File has same size, do not update: %s", record.relpath)
+            logger.debug("Skip: %s", record.relpath)
             return False
 
         return True
