@@ -22,8 +22,8 @@ fi
 # Find coverage command in Debian/Ubuntu or Mac OS + MacPorts
 if [ -x "$(command -v python3-coverage)" ]; then
     COVERAGE=python3-coverage
-elif [ -x "$(command -v coverage-3.7)" ]; then
-    COVERAGE=coverage-3.7
+elif [ -x "$(command -v coverage-3.8)" ]; then
+    COVERAGE=coverage-3.8
 else
     echo "No Python coverage command found"
     exit 1
