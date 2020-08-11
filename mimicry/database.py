@@ -80,7 +80,7 @@ class DB:
             path (str): Absolute path to the file
         """
         file_ = File(path)
-        logger.debug(f"Add %s to database", file_)
+        logger.info(f"Add: %s", path)
         cursor = self.connection.cursor()
         cursor.execute('SAVEPOINT add_file;')
         try:

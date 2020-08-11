@@ -21,7 +21,7 @@ def main(path):
 
 
 def setup_logging():
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(format="%(message)s", level=logging.INFO)
 
 
 if __name__ == '__main__':

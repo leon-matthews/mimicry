@@ -4,7 +4,7 @@ import functools
 from pprint import pprint as pp
 from unittest import TestCase
 
-from mimicry.utils import file_size, round_significant
+from mimicry.utils import file_size, normalise, round_significant
 
 
 class TestFileSize(TestCase):
@@ -96,6 +96,20 @@ class TestFileSize(TestCase):
         )
         for size, expected in data:
             self.assertEqual(file_size(size, traditional=True), expected)
+
+
+class TestNormalise(TestCase):
+    def test_normalise(self):
+        strings = [
+            ' ABC  ',
+            '[season 1] Episode One',
+        ]
+        expected = [
+            'abc',
+            'season 1 episode one',
+        ]
+        normalised = [normalise(s) for s in strings]
+        self.assertEqual(normalised, expected)
 
 
 class TestRoundSignificant(TestCase):

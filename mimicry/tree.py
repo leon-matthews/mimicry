@@ -7,6 +7,7 @@ from time import perf_counter
 
 from .exceptions import NotAFolder
 from .file import File
+from .utils import normalise
 
 
 logger = logging.getLogger(__name__)
@@ -75,7 +76,7 @@ class Tree:
         self.total_files = 0
         self.total_bytes = 0
         started = perf_counter()
-        for name, path, rootfd in self._walk():
+        for name, path, rootfd in self._walk(sort=False):
             s = os.lstat(name, dir_fd=rootfd)
             self.total_files += 1
             self.total_bytes += s.st_size
@@ -90,7 +91,7 @@ class Tree:
             raise NotAFolder(f"Given root not a folder: '{root!s}'")
         return root
 
-    def _walk(self):
+    def _walk(self, sort=True):
         """
         Yield tuple for every file under root, skipping hidden files if requested.
 
@@ -106,6 +107,12 @@ class Tree:
                         logger.debug("Skipping hidden folder: %s", path)
                         del dirs[index]
 
+            # Sort
+            if sort:
+                dirs.sort(key=normalise)
+                files.sort(key=normalise)
+
+            # Check files
             for name in files:
                 path = os.path.join(root, name)
 

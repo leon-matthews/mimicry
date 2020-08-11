@@ -1,5 +1,6 @@
 
 import math
+import re
 
 
 def file_size(size: float, traditional: bool = False) -> str:
@@ -65,3 +66,10 @@ def round_significant(number: float, digits: int = 2):
     magnitude = int(math.floor(math.log10(abs(number))))
     ndigits = digits - magnitude - 1
     return round(number, ndigits)
+
+
+def normalise(string):
+    cleaned = string.lower()
+    cleaned = normalise.pattern.sub('', cleaned)
+    return cleaned.strip()
+normalise.pattern = re.compile(r'[^a-z0-9 ]+')
