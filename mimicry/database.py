@@ -1,4 +1,6 @@
 
+from __future__ import annotations
+
 from collections import defaultdict
 from dataclasses import dataclass
 import logging
@@ -7,6 +9,7 @@ from pathlib import Path
 from pprint import pprint as pp
 import sqlite3
 import textwrap
+from typing import Iterator, Optional
 
 from .exceptions import NotUnderRoot
 from .file import File
@@ -27,7 +30,7 @@ class FileRecord:
     sha256: bytes
 
     @classmethod
-    def from_database(cls, row):
+    def from_database(cls, row: dict) -> FileRecord:
         """
         Create object from database row data.
 
@@ -56,7 +59,7 @@ class DB:
     It is an error to try and perform operations outside the file tree's
     root. A `NotUnderRoot` exception will be raised if attempted.
     """
-    def __init__(self, path, verbose=False):
+    def __init__(self, path: Path, verbose: bool=False):
         """
         Open existing, or create database file.
 
@@ -72,7 +75,7 @@ class DB:
         self._check_schema()
         self._run_pragmas()
 
-    def add(self, path):
+    def add(self, path: Path) -> None:
         """
         Add or update single file record in database.
 
@@ -90,20 +93,21 @@ class DB:
             cursor.execute("ROLLBACK TO add_file;")
             raise
 
-    def delete(self, path):
+    def delete(self, path: Path) -> None:
         """
         Delete the file record with the given path.
         """
         data = self.get_row(path)
+        assert data is not None
         pk = data['id']
         self.connection.execute('DELETE FROM files WHERE id=?;', (pk,))
         self.connection.commit()
 
-    def duplicates(self):
+    def duplicates(self) -> defaultdict:
         """
         Iterate over duplicate files.
         """
-        duplicates = defaultdict(list)
+        duplicates: defaultdict = defaultdict(list)
 
         query = ("SELECT count(*) AS count, sha256, size FROM "
                  "files GROUP BY sha256 HAVING count > 1;")
@@ -111,11 +115,11 @@ class DB:
         query = ("SELECT * FROM files WHERE sha256 IN "
                  "(SELECT sha256 FROM files GROUP BY sha256 HAVING count(*) > 1);")
         for row in self.connection.execute(query):
-            f = FileRecord(fields=row)
+            f = FileRecord.from_database(row)
             duplicates[f.sha256].append(f)
         return duplicates
 
-    def files(self):
+    def files(self) -> Iterator[FileRecord]:
         """
         Iterate over every file in database.
         """
@@ -127,25 +131,25 @@ class DB:
             data = dict(row)
             yield FileRecord.from_database(data)
 
-    def files_count(self):
+    def files_count(self) -> int:
         """
         Return the total number of file records.
         """
         cursor = self.connection.execute("SELECT count(*) FROM files;")
-        return cursor.fetchone()[0]
+        return int(cursor.fetchone()[0])
 
-    def files_size(self):
+    def files_size(self) -> int:
         """
         Return sum of the bytes accross of all file records.
         """
         cursor = self.connection.execute("SELECT sum(size) FROM files;")
-        return cursor.fetchone()[0]
+        return int(cursor.fetchone()[0])
 
-    def folders_count(self):
+    def folders_count(self) -> int:
         cursor = self.connection.execute("SELECT count(*) FROM folders;")
-        return cursor.fetchone()[0]
+        return int(cursor.fetchone()[0])
 
-    def get(self, path):
+    def get(self, path) -> Optional[FileRecord]:
         """
         Return a single `FileRecord` record.
 
@@ -157,10 +161,10 @@ class DB:
         """
         row = self.get_row(path)
         if row is None:
-            return None
+            return row
         return FileRecord.from_database(row)
 
-    def get_row(self, path):
+    def get_row(self, path: Path) -> Optional[dict]:
         """
         Fetch data about a single file, raw.
 
@@ -185,13 +189,9 @@ class DB:
         folder = str(relpath.parent)
         cursor = self.connection.cursor()
         cursor.execute(query, {'folder':  folder, 'filename': relpath.name})
-        row = cursor.fetchone()
-        if row is None:
-            return None
-        data = dict(row)
-        return data
+        return cursor.fetchone()
 
-    def _check_schema(self):
+    def _check_schema(self) -> None:
         """
         Create database structure, if required.
 
@@ -236,7 +236,7 @@ class DB:
         self.connection.executescript(schema)
         self.connection.commit()
 
-    def _clean_path(self, path):
+    def _clean_path(self, path: Path) -> Path:
         """
         TODO: where and when?
         Clean path, and check for validity.
@@ -251,7 +251,7 @@ class DB:
             raise NotUnderRoot(message) from None
         return path
 
-    def _connect(self, path, verbose=False):
+    def _connect(self, path: Path, verbose: bool=False) -> sqlite3.dbapi2.Connection:
         """
         Connect to database.
 

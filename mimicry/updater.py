@@ -23,7 +23,7 @@ class Updater:
         self.db_path = self.root / self.db_file
         self.db = None
 
-    def update(self):
+    def update(self) -> None:
         # Create and/or load database
         logger.debug(f"Create database: '{self.db_path}'")
         self.db = DB(self.db_path)

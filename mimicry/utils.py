@@ -3,7 +3,7 @@ import math
 import re
 
 
-def file_size(size: float, traditional: bool = False) -> str:
+def file_size(size: int, traditional: bool = False) -> str:
     """
     Convert a file size in bytes to a easily human-parseable form, using only
     one or two significant figures.
@@ -33,21 +33,22 @@ def file_size(size: float, traditional: bool = False) -> str:
     }
 
     multiple = 1024 if traditional else 1000
+    value = float(size)
     for suffix in suffixes[multiple]:
-        size /= multiple
-        if size < multiple:
-            size = round_significant(size, 2)
-            size = int(size) if size >= 10 else size
-            return '{:,}{}'.format(size, suffix)
+        value /= multiple
+        if value < multiple:
+            value = round_significant(value, 2)
+            value = int(value) if value >= 10 else value
+            return '{:,}{}'.format(value, suffix)
 
     # Greater than 1000 Yottabytes!? That is a pile of 64GB MicroSD cards
     # as large as the Great Pyramid of Giza!  You're dreaming, but in the
     # interests of completeness...
     # http://en.wikipedia.org/wiki/Yottabyte
-    return '{:,}{}'.format(int(round(size)), suffix)
+    return '{:,}{}'.format(int(round(value)), suffix)
 
 
-def round_significant(number: float, digits: int = 2):
+def round_significant(number: float, digits: int = 2) -> float:
     """
     Round number to the given number of sigificant digits. eg::
 
@@ -68,8 +69,11 @@ def round_significant(number: float, digits: int = 2):
     return round(number, ndigits)
 
 
-def normalise(string):
+normalise_pattern = re.compile(r'[^a-z0-9 ]+')
+
+
+def normalise(string: str) -> str:
     cleaned = string.lower()
-    cleaned = normalise.pattern.sub('', cleaned)
+    cleaned = normalise_pattern.sub('', cleaned)
     return cleaned.strip()
-normalise.pattern = re.compile(r'[^a-z0-9 ]+')
+
